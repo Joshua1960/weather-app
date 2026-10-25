@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@layer base {
+  *, ::before, ::after {
+    font-family: 'Merriweather', Georgia, serif !important;
+  }
+
+  :root, html, body {
+    font-family: 'Merriweather', Georgia, serif !important;
+  }
+
+  code, kbd, samp, pre, .font-mono, .font-sans {
+    font-family: 'Merriweather', Georgia, serif !important;
+    font-feature-settings: "tnum" 1, "zero" 1;
+  }
+}
+
+/* Custom crisp scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(160, 160, 160, 0.25);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 160, 160, 0.45);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}

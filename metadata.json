@@ -1,0 +1,6 @@
+{
+  "name": "GCI Weather & AI Advisory",
+  "description": "Minimal Swiss-terminal inspired real-time weather app with Gemini AI activity advisories, real-time climate chat assistant, push alerts, and customizable dashboard.",
+  "requestFramePermissions": ["geolocation", "notifications"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
