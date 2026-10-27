@@ -414,3 +414,105 @@ export async function sendNativeNotification(title: string, body: string, icon =
   }
   return false;
 }
+
+export interface ActualWeatherImageInfo {
+  url: string;
+  alt: string;
+  label: string;
+}
+
+/**
+ * Returns a real high-resolution photograph (NOT an illustration or drawing)
+ * representing the current sky and weather condition.
+ */
+export function getActualWeatherImage(code: number, isDay = true): ActualWeatherImageInfo {
+  // Sunny / Clear Day
+  if ((code === 0 || code === 1) && isDay) {
+    return {
+      url: 'https://images.unsplash.com/photo-1617155093730-a8bf47be792d?auto=format&fit=crop&w=1200&q=80',
+      alt: 'Actual photograph of blazing bright sun in the sky',
+      label: 'Bright Sun',
+    };
+  }
+
+  // Clear Night
+  if ((code === 0 || code === 1) && !isDay) {
+    return {
+      url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80',
+      alt: 'Actual photograph of starry night sky with moon',
+      label: 'Clear Night Sky',
+    };
+  }
+
+  // Partly Cloudy
+  if (code === 2) {
+    return {
+      url: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?auto=format&fit=crop&w=1200&q=80',
+      alt: 'Actual photograph of sunlit clouds in the sky',
+      label: 'Sunlit Clouds',
+    };
+  }
+
+  // Cloudy / Overcast
+  if (code === 3) {
+    return {
+      url: 'https://images.unsplash.com/photo-1501630834273-4b5604d2ee31?auto=format&fit=crop&w=1200&q=80',
+      alt: 'Actual photograph of dense clouds covering the sky',
+      label: 'Cloudy Sky',
+    };
+  }
+
+  // Fog & Mist
+  if (code === 45 || code === 48) {
+    return {
+      url: 'https://images.unsplash.com/photo-1487621167305-5d248087c724?auto=format&fit=crop&w=1200&q=80',
+      alt: 'Actual photograph of real atmospheric fog and mist',
+      label: 'Fog & Mist',
+    };
+  }
+
+  // Rain, Drizzle, Showers
+  if ([51, 53, 55, 61, 63, 65, 80, 81, 82].includes(code)) {
+    return {
+      url: 'https://images.unsplash.com/photo-1519692933481-e162a57d6721?auto=format&fit=crop&w=1200&q=80',
+      alt: 'Actual photograph of real rainfall and water droplets',
+      label: 'Rainfall',
+    };
+  }
+
+  // Freezing Rain & Icy precipitation
+  if ([56, 57, 66, 67].includes(code)) {
+    return {
+      url: 'https://images.unsplash.com/photo-1516431883659-655d41c09bf9?auto=format&fit=crop&w=1200&q=80',
+      alt: 'Actual photograph of icy freezing precipitation',
+      label: 'Freezing Rain',
+    };
+  }
+
+  // Snow & Snow Showers
+  if ([71, 73, 75, 77, 85, 86].includes(code)) {
+    return {
+      url: 'https://images.unsplash.com/photo-1491002052546-bf38f186af56?auto=format&fit=crop&w=1200&q=80',
+      alt: 'Actual photograph of real falling snow',
+      label: 'Snowfall',
+    };
+  }
+
+  // Thunderstorm / Severe Storm with hail
+  if ([95, 96, 99].includes(code)) {
+    return {
+      url: 'https://images.unsplash.com/photo-1605727216801-e27ce1d0cc28?auto=format&fit=crop&w=1200&q=80',
+      alt: 'Actual photograph of real thunderstorm and lightning strike',
+      label: 'Thunderstorm',
+    };
+  }
+
+  // Default fallback based on day/night
+  return {
+    url: isDay
+      ? 'https://images.unsplash.com/photo-1617155093730-a8bf47be792d?auto=format&fit=crop&w=1200&q=80'
+      : 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1200&q=80',
+    alt: 'Actual photograph of the sky',
+    label: isDay ? 'Sun' : 'Night Sky',
+  };
+}

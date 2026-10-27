@@ -86,31 +86,347 @@ export async function reverseGeocodeLocation(latitude: number, longitude: number
   };
 }
 
+const NICHE_LOCATIONS: LocationItem[] = [
+  {
+    name: 'International Conference Centre, University of Ibadan',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4425,
+    longitude: 3.8960,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'University of Ibadan (UI)',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4477,
+    longitude: 3.8967,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Bodija',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4235,
+    longitude: 3.9154,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Old Bodija',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4193,
+    longitude: 3.9062,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'New Bodija',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4235,
+    longitude: 3.9154,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Bodija Market',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4359,
+    longitude: 3.9157,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Sango, Ibadan',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4237,
+    longitude: 3.8993,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Government College Ibadan (GCI)',
+    admin1: 'Apata, Ibadan',
+    country: 'Nigeria',
+    latitude: 7.3688,
+    longitude: 3.8447,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'University College Hospital (UCH)',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4042,
+    longitude: 3.9037,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'The Polytechnic, Ibadan',
+    admin1: 'Sango/Eleyele, Ibadan',
+    country: 'Nigeria',
+    latitude: 7.4390,
+    longitude: 3.8760,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Lead City University',
+    admin1: 'Toll Gate, Ibadan',
+    country: 'Nigeria',
+    latitude: 7.3370,
+    longitude: 3.8820,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Cocoa House, Dugbe',
+    admin1: 'Dugbe, Ibadan',
+    country: 'Nigeria',
+    latitude: 7.3887,
+    longitude: 3.8824,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Moniya (Ibadan Train Station)',
+    admin1: 'Akinyele, Oyo',
+    country: 'Nigeria',
+    latitude: 7.5312,
+    longitude: 3.9189,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Iwo Road',
+    admin1: 'Ibadan Northeast, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4083,
+    longitude: 3.9312,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Challenge',
+    admin1: 'Ibadan, Oyo',
+    country: 'Nigeria',
+    latitude: 7.3488,
+    longitude: 3.8789,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Mokola Roundabout',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4089,
+    longitude: 3.8897,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Odo Ona',
+    admin1: 'Ibadan Southwest, Oyo',
+    country: 'Nigeria',
+    latitude: 7.3373,
+    longitude: 3.8593,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Samonda',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4300,
+    longitude: 3.8920,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Agbowo',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4430,
+    longitude: 3.9050,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Ojoo',
+    admin1: 'Akinyele, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4680,
+    longitude: 3.9180,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Agodi Gardens',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4110,
+    longitude: 3.8990,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Mapo Hall',
+    admin1: 'Ibadan Southeast, Oyo',
+    country: 'Nigeria',
+    latitude: 7.3756,
+    longitude: 3.8962,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Ring Road',
+    admin1: 'Ibadan Southwest, Oyo',
+    country: 'Nigeria',
+    latitude: 7.3562,
+    longitude: 3.8710,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Eleyele',
+    admin1: 'Ibadan Northwest, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4178,
+    longitude: 3.8654,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Jericho',
+    admin1: 'Ibadan Northwest, Oyo',
+    country: 'Nigeria',
+    latitude: 7.3910,
+    longitude: 3.8710,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Alakia (Ibadan Airport)',
+    admin1: 'Egbeda, Oyo',
+    country: 'Nigeria',
+    latitude: 7.3625,
+    longitude: 3.9783,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Akobo',
+    admin1: 'Lagelu, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4380,
+    longitude: 3.9480,
+    timezone: 'Africa/Lagos',
+  },
+  {
+    name: 'Oluyole Estate',
+    admin1: 'Ibadan Southwest, Oyo',
+    country: 'Nigeria',
+    latitude: 7.3520,
+    longitude: 3.8610,
+    timezone: 'Africa/Lagos',
+  },
+];
+
 export async function searchLocations(query: string): Promise<LocationItem[]> {
   if (!query || query.trim().length < 2) return [];
 
+  const rawClean = query.trim().toLowerCase();
+  const normalizedWords = rawClean
+    .replace(/[^\w\s]/gi, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 1);
+
+  // 1. Check curated hyper-niche landmarks & districts
+  const localMatches: LocationItem[] = [];
+  for (const item of NICHE_LOCATIONS) {
+    const targetText = `${item.name} ${item.admin1 || ''} ${item.country}`.toLowerCase();
+
+    // Exact or phrase substring match
+    if (targetText.includes(rawClean)) {
+      localMatches.push(item);
+      continue;
+    }
+
+    // Token-based match with typo flexibility (e.g., conference/centre/ui/ibadan)
+    const matchCount = normalizedWords.filter((word) => targetText.includes(word)).length;
+    if (
+      matchCount >= Math.min(2, normalizedWords.length) ||
+      (normalizedWords.length === 1 && targetText.includes(normalizedWords[0]))
+    ) {
+      localMatches.push(item);
+    }
+  }
+
+  // 2. Query OpenStreetMap Nominatim for real-time worldwide building/district/street geocoding
+  const nominatimPromise = (async (): Promise<LocationItem[]> => {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+        query.trim()
+      )}&format=json&addressdetails=1&limit=6`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!Array.isArray(data)) return [];
+
+      return data.map((item: any) => {
+        const addr = item.address || {};
+        const title = item.name || item.display_name.split(',')[0];
+        const admin = [
+          addr.suburb || addr.neighbourhood || addr.city_district || addr.road,
+          addr.city || addr.town || addr.county,
+          addr.state,
+        ]
+          .filter(Boolean)
+          .filter((v, i, a) => a.indexOf(v) === i)
+          .join(', ');
+
+        return {
+          id: item.place_id,
+          name: title,
+          admin1: admin || addr.state || '',
+          country: addr.country || '',
+          latitude: parseFloat(item.lat),
+          longitude: parseFloat(item.lon),
+          timezone: 'auto',
+        };
+      });
+    } catch {
+      return [];
+    }
+  })();
+
+  // 3. Query Open-Meteo Geocoding
+  const openMeteoPromise = (async (): Promise<LocationItem[]> => {
+    try {
+      const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
+        query.trim()
+      )}&count=6&language=en&format=json`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!data.results || !Array.isArray(data.results)) return [];
+
+      return data.results.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        country: r.country,
+        admin1: r.admin1,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        timezone: r.timezone || 'auto',
+      }));
+    } catch {
+      return [];
+    }
+  })();
+
   try {
-    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
-      query.trim()
-    )}&count=6&language=en&format=json`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Failed to query geocoding service');
-    const data = await res.json();
+    const [nomResults, meteoResults] = await Promise.all([nominatimPromise, openMeteoPromise]);
+    const combined = [...localMatches, ...nomResults, ...meteoResults];
 
-    if (!data.results || !Array.isArray(data.results)) return [];
+    // Deduplicate by close proximity (< 1km) and name
+    const seen = new Set<string>();
+    const uniqueResults: LocationItem[] = [];
 
-    return data.results.map((r: any) => ({
-      id: r.id,
-      name: r.name,
-      country: r.country,
-      admin1: r.admin1,
-      latitude: r.latitude,
-      longitude: r.longitude,
-      timezone: r.timezone || 'auto',
-    }));
-  } catch (error) {
-    console.error('Geocoding search failed:', error);
-    return [];
+    for (const loc of combined) {
+      const key = `${loc.name.toLowerCase()}-${loc.latitude.toFixed(2)}-${loc.longitude.toFixed(2)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueResults.push(loc);
+      }
+      if (uniqueResults.length >= 8) break;
+    }
+
+    return uniqueResults;
+  } catch (err) {
+    console.error('Location search error:', err);
+    return localMatches;
   }
 }
 

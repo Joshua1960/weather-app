@@ -1,6 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MapPin } from 'lucide-react';
-import { ChatMessage, CurrentWeather, DailyForecastItem, LocationItem } from '../types/weather';
+import {
+  ChatMessage,
+  CurrentWeather,
+  DailyForecastItem,
+  HourlyForecastItem,
+  LocationItem,
+} from '../types/weather';
 import { sendChatMessage } from '../services/weatherService';
 
 interface ChatbotDrawerProps {
@@ -9,6 +15,8 @@ interface ChatbotDrawerProps {
   location: LocationItem;
   current: CurrentWeather;
   todayDaily?: DailyForecastItem;
+  upcomingHours?: HourlyForecastItem[];
+  forecastDays?: DailyForecastItem[];
   hourlySummary?: string;
   isBright?: boolean;
 }
@@ -28,6 +36,8 @@ export const ChatbotDrawer: React.FC<ChatbotDrawerProps> = ({
   location,
   current,
   todayDaily,
+  upcomingHours,
+  forecastDays,
   hourlySummary: _hourlySummary,
   isBright = false,
 }) => {
@@ -35,7 +45,7 @@ export const ChatbotDrawer: React.FC<ChatbotDrawerProps> = ({
     {
       id: 'welcome',
       role: 'model',
-      content: 'Hello. I am GCI Meteo, your weather bestie. I am here to assist you with information about the weather condition and insight. How can I assist your plans today?',
+      content: 'Hello. I am GCI Meteo. Ask me about weather conditions, daily planning, or any questions you have. How can I assist you?',
       timestamp: 'Now',
     },
   ]);
@@ -77,24 +87,41 @@ export const ChatbotDrawer: React.FC<ChatbotDrawerProps> = ({
   const weatherContext = {
     city: location.name,
     country: location.country,
+    admin1: location.admin1,
+    localTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }),
     current: {
-      temperature: current.temperature,
-      apparentTemperature: current.apparentTemperature,
+      temperature: `${current.temperature}°C`,
+      apparentTemperature: `${current.apparentTemperature}°C`,
       conditionText: current.conditionText,
-      windSpeed: current.windSpeed,
-      windDirection: current.windDirection,
-      humidity: current.humidity,
+      dayNightStatus: current.isDay ? 'Daytime' : 'Nighttime',
+      humidity: `${current.humidity}%`,
+      windSpeed: `${current.windSpeed} km/h`,
+      windDirection: `${current.windDirection}°`,
+      precipitation: `${current.precipitation} mm/h`,
       uvIndex: current.uvIndex,
-      surfacePressure: current.surfacePressure,
-      precipitation: current.precipitation,
+      surfacePressure: `${current.surfacePressure} hPa`,
+      cloudCover: `${current.cloudCover}%`,
     },
-    daily: {
-      precipitationProbabilityMax: todayDaily?.precipitationProbabilityMax || 0,
-      tempMax: todayDaily?.temperatureMax,
-      tempMin: todayDaily?.temperatureMin,
-      sunrise: todayDaily?.sunrise,
-      sunset: todayDaily?.sunset,
-    },
+    today: todayDaily ? {
+      maxTemp: `${todayDaily.temperatureMax}°C`,
+      minTemp: `${todayDaily.temperatureMin}°C`,
+      precipitationProbability: `${todayDaily.precipitationProbabilityMax}%`,
+      sunrise: todayDaily.sunrise,
+      sunset: todayDaily.sunset,
+      uvIndexMax: todayDaily.uvIndexMax,
+    } : undefined,
+    upcomingHours: upcomingHours?.slice(0, 8).map((h) => ({
+      time: h.time,
+      temp: `${h.temperature}°C`,
+      condition: h.conditionText,
+      rainChance: `${h.precipitationProbability}%`,
+    })),
+    tomorrow: forecastDays?.[1] ? {
+      maxTemp: `${forecastDays[1].temperatureMax}°C`,
+      minTemp: `${forecastDays[1].temperatureMin}°C`,
+      condition: forecastDays[1].conditionText,
+      rainChance: `${forecastDays[1].precipitationProbabilityMax}%`,
+    } : undefined,
   };
 
   const handleSend = async (textToSend?: string) => {
@@ -143,7 +170,7 @@ export const ChatbotDrawer: React.FC<ChatbotDrawerProps> = ({
       {
         id: Date.now().toString(),
         role: 'model',
-        content: 'Hello. I am GCI Meteo, your weather bestie. I am here to assist you with information about the weather condition and insight. How can I assist your plans today?',
+        content: 'Hello. I am GCI Meteo. Ask me about weather conditions, daily planning, or any questions you have. How can I assist you?',
         timestamp: 'Now',
       },
     ]);
@@ -152,12 +179,12 @@ export const ChatbotDrawer: React.FC<ChatbotDrawerProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/60 backdrop-blur-xs transition-opacity duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-[8vw] sm:p-4 md:p-6 bg-black/60 backdrop-blur-xs transition-opacity duration-200"
     >
       <div
         ref={modalRef}
         onClick={(e) => e.stopPropagation()}
-        className={`relative flex flex-col w-full max-w-lg sm:max-w-xl h-[88vh] sm:h-[620px] max-h-[92vh] rounded-xl sm:rounded-lg border shadow-2xl overflow-hidden transition-all duration-200 ${
+        className={`relative flex flex-col w-full max-w-lg sm:max-w-xl h-full max-h-[84vh] sm:h-[620px] sm:max-h-[88vh] rounded-xl sm:rounded-lg border shadow-2xl overflow-hidden transition-all duration-200 ${
           isBright
             ? 'bg-white text-neutral-900 border-neutral-300 shadow-xl'
             : 'bg-neutral-950 text-neutral-100 border-neutral-800 shadow-2xl'

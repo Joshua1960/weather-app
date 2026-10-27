@@ -23,24 +23,11 @@ export const HourlyTimeline: React.FC<HourlyTimelineProps> = ({
   const minTemp = Math.min(...temps);
   const maxTemp = Math.max(...temps);
   const tempRange = Math.max(maxTemp - minTemp, 1);
-
   const activeHour = hourly[selectedHourIdx] || hourly[0];
-
-  const scrollLeft = () => {
-    if (timelineRef.current) {
-      timelineRef.current.scrollBy({ left: -timelineRef.current.clientWidth, behavior: 'smooth' });
-    }
-  };
-
-  const scrollRight = () => {
-    if (timelineRef.current) {
-      timelineRef.current.scrollBy({ left: timelineRef.current.clientWidth, behavior: 'smooth' });
-    }
-  };
 
   return (
     <section
-      className={`rounded-sm border p-4 sm:p-5 transition-colors ${
+      className={`rounded-xl border p-5 sm:p-6 transition-colors ${
         isBright
           ? 'border-neutral-300/80 bg-white/75 shadow-xs text-neutral-900'
           : 'border-neutral-800/80 bg-neutral-900/30 text-neutral-100'
@@ -57,43 +44,17 @@ export const HourlyTimeline: React.FC<HourlyTimelineProps> = ({
               isBright ? 'text-neutral-800' : 'text-neutral-200'
             }`}
           >
-            24-Hour Chronological Forecast
+            Hourly Forecast (Next 24 Hours)
           </h2>
-
-          {/* Scrub Arrows */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={scrollLeft}
-              className={`flex h-5 w-5 items-center justify-center rounded text-xs font-bold transition-colors ${
-                isBright
-                  ? 'bg-neutral-200 hover:bg-neutral-300 text-neutral-800'
-                  : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
-              }`}
-              title="Previous 8 hours"
-            >
-              ‹
-            </button>
-            <button
-              onClick={scrollRight}
-              className={`flex h-5 w-5 items-center justify-center rounded text-xs font-bold transition-colors ${
-                isBright
-                  ? 'bg-neutral-200 hover:bg-neutral-300 text-neutral-800'
-                  : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
-              }`}
-              title="Next 8 hours"
-            >
-              ›
-            </button>
-          </div>
         </div>
 
         <div className={`font-mono text-xs ${isBright ? 'text-neutral-600' : 'text-neutral-400'}`}>
           <span>
-            {selectedHourIdx === 0 ? 'Now' : activeHour.timeFormatted}:{' '}
+            {selectedHourIdx === 0 ? 'Right now' : activeHour.timeFormatted}:{' '}
             <strong className={isBright ? 'text-neutral-950 font-bold' : 'text-white'}>
               {formatTemperature(activeHour.temperature, userPreferences.tempUnit)}
             </strong>{' '}
-            · {activeHour.conditionText}
+            · {activeHour.conditionText} (Chance of rain: {activeHour.precipitationProbability}%)
           </span>
         </div>
       </div>

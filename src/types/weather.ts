@@ -93,7 +93,9 @@ export interface ActivityAdvisoryItem {
 
 export interface AIAdvisoryResponse {
   overallSummary: string;
+  weatherMeaning?: string;
   clothingRecommendation: string;
+  foodRecommendation?: string;
   advisories: ActivityAdvisoryItem[];
   generatedAt?: string;
 }
@@ -114,6 +116,13 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+export interface TargetTemperatureAlert {
+  enabled: boolean;
+  targetTemp: number;
+  condition: 'reaches_or_above' | 'drops_to_or_below';
+  lastNotifiedTemp?: number;
+}
+
 export interface UserPreferences {
   tempUnit: 'C' | 'F';
   windUnit: 'kmh' | 'mph' | 'ms';
@@ -123,6 +132,7 @@ export interface UserPreferences {
   activeCity: LocationItem;
   favoriteActivities: string[];
   notificationsEnabled: boolean;
+  targetTempAlert?: TargetTemperatureAlert;
   alertRules: {
     rainAlert: boolean;
     tempAlert: boolean;
