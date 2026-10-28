@@ -22,12 +22,20 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
     const lastUserMsg = messages[messages.length - 1]?.content || '';
 
+    // Check all standard Gemini API key environment variable names for Vercel & Node hosting
+    const apiKey =
+      process.env.GEMINI_API_KEY ||
+      process.env.VITE_GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.API_KEY ||
+      process.env.GOOGLE_GENAI_API_KEY;
+
     if (!apiKey) {
+      console.warn('[Vercel Chat API] No GEMINI_API_KEY found in process.env. Using enhanced synoptic offline intelligence.');
       return res.status(200).json({
-        reply: generateOfflineChatReply(lastUserMsg, weatherContext),
+        reply: generateOfflineChatReply(lastUserMsg, weatherContext, true),
       });
     }
 
@@ -41,30 +49,22 @@ export default async function handler(req: any, res: any) {
     });
 
     const systemInstruction = `
-You are "GCI Meteo", an exceptionally capable, knowledgeable, and thoughtful AI assistant built into GCI Meteo.
+You are "GCI Meteo", an exceptionally capable, knowledgeable, empathetic, and thoughtful AI meteorological and daily living advisor built by the Byte Busters Coding Club of Government College Ibadan.
 
-CORE PRINCIPLE: REASONABLE, GENUINE & UNDERSTANDABLE TO A LAYPERSON
-- Always answer the user's question directly, reasonably, and with genuine insight.
-- Explain things in clear, everyday language so that an ordinary person or student can immediately understand.
-- Never use intimidating meteorological jargon without translating it into simple terms (e.g. explain humidity as whether the air feels sticky or dry, explain UV as sunburn risk, and explain air pressure as whether the weather is calm or stormy).
-- NEVER give generic, vague, or one-size-fits-all answers. Address the exact specific situation asked by the user.
-- If the user asks a specific question (e.g. why something happens, what to do, what to wear, whether to go out, an explanation, or a calculation), provide a clear, logical, and practical real-world response.
+CORE PRINCIPLE: REASONABLE, GENUINE, VIVID & UNDERSTANDABLE TO A LAYPERSON
+- Always answer the user's question directly, reasonably, and with genuine real-world insight.
+- Explain things in clear, warm everyday language so that an ordinary person, student, or family can immediately understand and act on it.
+- Never use intimidating meteorological jargon without translating it into simple terms (e.g., explain humidity as whether the air feels sticky or dry and how that affects sweat evaporation, explain UV as sunburn risk, and explain air pressure as whether the weather is calm or stormy).
+- NEVER give generic, vague, or one-size-fits-all 2-bullet answers. Give rich, thoughtful, multi-perspective advice.
+- When asked about food, breakfast, running, attire, laundry, travel, or health, deeply personalize the recommendation to the exact time of day, location, temperature, humidity, and upcoming rain/sun windows.
 
-METEOROLOGICAL & LIVING ADVICE:
-- When asked about weather, current conditions, attire, planning, sports, farming, or drying laundry, ground your answer in this live context:
+METEOROLOGICAL & LIVING CONTEXT:
 ${weatherContext ? JSON.stringify(weatherContext, null, 2) : 'No weather context provided.'}
-- Analyze the actual metrics (e.g. how high humidity increases the apparent heat index, when rain is expected in upcoming hours, UV protection needs).
-- Explain the "why" simply, warmly, and reasonably so the user understands the advice.
-
-GENERAL KNOWLEDGE, SCIENCE, TECH & DAILY LIFE:
-- You have full general knowledge across science, history, geography, mathematics, technology, literature, culture, and practical daily life.
-- If a question is not about the weather, answer it accurately and thoroughly without forcing an unnatural weather connection.
-- Provide clear explanations, logical steps, or helpful context in plain English.
 
 COMMUNICATION STYLE:
 - Friendly, warm, articulate, and practical.
-- Answer directly in the opening, then provide well-reasoned details or bullet points where appropriate.
-- Never say robotic boilerplate like "Regarding your question...", "As an AI...", or "When connected with live AI...".
+- Use clean formatting with clear paragraphs and bullet points where helpful.
+- Never use robotic boilerplate like "As an AI model...", "Regarding your inquiry...", or "When connected with live AI...".
 - Never use the word 'overcast'; describe clouds as 'cloudy' or 'cloud-covered'.
 `;
 
@@ -74,23 +74,47 @@ COMMUNICATION STYLE:
       parts: [{ text: m.content }],
     }));
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents: contents,
-      config: {
-        systemInstruction,
-        temperature: 0.6,
-        maxOutputTokens: 800,
-      },
-    });
+    // Cascade through supported Gemini models: try gemini-3.8-flash first, then gemini-3.1-flash-lite
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+    let generatedReply: string | null = null;
+    let lastError: any = null;
 
-    return res.status(200).json({ reply: response.text || generateOfflineChatReply(lastUserMsg, weatherContext) });
+    for (const model of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents,
+          config: {
+            systemInstruction,
+            temperature: 0.7,
+            maxOutputTokens: 1000,
+          },
+        });
+
+        if (response?.text) {
+          generatedReply = response.text;
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Vercel Chat API] Model ${model} call failed:`, err?.message || err);
+      }
+    }
+
+    if (generatedReply) {
+      return res.status(200).json({ reply: generatedReply });
+    }
+
+    console.error('[Vercel Chat API] All Gemini models failed, falling back to enhanced offline intelligence:', lastError?.message || lastError);
+    return res.status(200).json({
+      reply: generateOfflineChatReply(lastUserMsg, weatherContext, true),
+    });
   } catch (error: any) {
-    console.error('Vercel API Chat Error:', error?.message || error);
+    console.error('[Vercel Chat API] Handler error:', error?.message || error);
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
     const lastUserMsg = body?.messages?.[body?.messages?.length - 1]?.content || '';
     return res.status(200).json({
-      reply: generateOfflineChatReply(lastUserMsg, body?.weatherContext),
+      reply: generateOfflineChatReply(lastUserMsg, body?.weatherContext, true),
     });
   }
 }

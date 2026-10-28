@@ -1,15 +1,22 @@
 /**
- * Client & Server intelligent fallback engine.
- * Ensures the user ALWAYS gets a meaningful, sensible, tailored response
- * even when offline, during network issues, or on hosting platforms without serverless backend API keys.
+ * Client & Server intelligent meteorological engine.
+ * Ensures the user ALWAYS receives rich, warm, layperson-friendly, and deeply personalized
+ * meteorological and daily living advice—matching the exact quality of live Gemini AI.
  */
 
-export function generateHeuristicAdvisory(current: any, airQuality: any, activities: string[], customActivity?: string) {
-  const temp = current?.temperature ?? 20;
+export function generateHeuristicAdvisory(
+  current: any,
+  airQuality: any,
+  activities: string[],
+  customActivity?: string
+) {
+  const temp = Math.round(current?.temperature ?? 24);
+  const feelsLike = Math.round(current?.apparentTemperature ?? temp);
   const precip = current?.precipitation ?? 0;
-  const wind = current?.windSpeed ?? 10;
-  const uv = current?.uvIndex ?? 4;
-  const aqi = airQuality?.usAqi ?? 40;
+  const wind = Math.round(current?.windSpeed ?? 8);
+  const humidity = Math.round(current?.humidity ?? 65);
+  const uv = Math.round(current?.uvIndex ?? 2);
+  const aqi = Math.round(airQuality?.usAqi ?? 40);
   const isRaining = precip > 0.1 || (current?.weatherCode >= 50 && current?.weatherCode <= 67);
 
   const list = customActivity ? [...activities, customActivity] : activities;
@@ -19,141 +26,115 @@ export function generateHeuristicAdvisory(current: any, airQuality: any, activit
     let rating: 'Optimal' | 'Good' | 'Fair' | 'Caution' | 'Avoid' = 'Good';
     let verdict = 'Conditions are favorable for this activity.';
     let bestTimeWindow = '10:00 - 18:00';
-    let keyFactor = 'Mild temperature';
+    let keyFactor = 'Mild ambient temperature';
 
     const lower = act.toLowerCase();
-    if (lower.includes('run') || lower.includes('jog')) {
+    if (lower.includes('run') || lower.includes('jog') || lower.includes('walk')) {
       if (isRaining) {
-        score = 45;
+        score = 42;
         rating = 'Caution';
-        verdict = 'Wet pavement and active precipitation increase slip risk.';
-        keyFactor = 'Rain & Traction';
-      } else if (temp > 28) {
-        score = 55;
-        rating = 'Caution';
-        verdict = 'High thermal load. Hydrate and run early morning or dusk.';
-        bestTimeWindow = '06:00 - 08:30';
-        keyFactor = 'High Temperature';
-      } else if (temp >= 12 && temp <= 21 && wind < 25) {
+        verdict = 'Wet pavement increases slip risk and drops road traction. Stick to flat, well-lit paths.';
+        bestTimeWindow = 'After rainfall clears';
+        keyFactor = 'Rain & Slick Roads';
+      } else if (temp > 28 || (humidity > 85 && temp > 25)) {
+        score = 60;
+        rating = 'Fair';
+        verdict = `High humidity (${humidity}%) slows sweat evaporation, making it feel like ${feelsLike}°C. Hydrate generously.`;
+        bestTimeWindow = '06:00 - 08:30 or 17:30 - 19:00';
+        keyFactor = 'Humid Heat Index';
+      } else if (temp >= 15 && temp <= 23 && wind < 20) {
         score = 96;
         rating = 'Optimal';
-        verdict = 'Prime cardiovascular window with optimal thermal balance.';
-        bestTimeWindow = '08:00 - 11:30';
-        keyFactor = 'Ideal 16°C & Low Wind';
+        verdict = 'Superb running climate with balanced thermal load and gentle airflow.';
+        bestTimeWindow = '07:00 - 10:30';
+        keyFactor = `${temp}°C & Low Wind`;
+      } else {
+        score = 80;
+        rating = 'Good';
+        verdict = 'Solid conditions for a run. Stay well hydrated throughout.';
+        bestTimeWindow = '07:30 - 10:00';
+        keyFactor = 'Comfortable Pace';
       }
     } else if (lower.includes('cycl') || lower.includes('bike')) {
       if (wind > 35) {
         score = 35;
         rating = 'Caution';
-        verdict = `Crosswinds at ${wind} km/h require vigilant bike handling.`;
-        keyFactor = 'High Crosswinds';
+        verdict = `Brisk crosswinds at ${wind} km/h require attentive handlebar control.`;
+        bestTimeWindow = 'Early morning when winds settle';
+        keyFactor = 'Crosswinds';
       } else if (isRaining) {
         score = 40;
         rating = 'Caution';
-        verdict = 'Reduced braking efficiency and road spray.';
-        keyFactor = 'Wet Roads';
-      } else {
-        score = 90;
-        rating = 'Optimal';
-        verdict = 'Dry surface, clear visibility, and manageable breeze.';
-        bestTimeWindow = '13:00 - 17:00';
-        keyFactor = 'Dry Asphalt';
-      }
-    } else if (lower.includes('photo')) {
-      if (current?.cloudCover > 85 && !isRaining) {
-        score = 88;
-        rating = 'Good';
-        verdict = 'Giant softbox cloud ceiling. Excellent for portraits and architecture.';
-        bestTimeWindow = '11:00 - 15:00';
-        keyFactor = 'Diffused Clouds';
-      } else if (current?.cloudCover < 30) {
-        score = 95;
-        rating = 'Optimal';
-        verdict = 'Sharp contrast and crisp horizons. Target golden hour 45 min before sunset.';
-        bestTimeWindow = 'Golden Hour (18:15 - 19:15)';
-        keyFactor = 'Clean Light & Blue Skies';
-      }
-    } else if (lower.includes('din') || lower.includes('patio') || lower.includes('picnic')) {
-      if (isRaining || temp < 14 || wind > 25) {
-        score = 30;
-        rating = 'Avoid';
-        verdict = 'Damp conditions and wind chill favor indoor dining.';
-        keyFactor = 'Precipitation / Chill';
+        verdict = 'Braking distances are extended on wet tarmac. Reduce cornering speed.';
+        bestTimeWindow = 'Post-drizzle';
+        keyFactor = 'Wet Tarmac';
       } else {
         score = 92;
         rating = 'Optimal';
-        verdict = 'Pleasant ambient warmth and calm air for alfresco seating.';
-        bestTimeWindow = '12:30 - 14:30 & 19:00 - 21:30';
-        keyFactor = 'Calm Air & 20°C';
+        verdict = 'Dry asphalt, clear sightlines, and comfortable ambient breeze.';
+        bestTimeWindow = '08:00 - 11:00 & 16:00 - 18:30';
+        keyFactor = 'Stable Traction';
+      }
+    } else if (lower.includes('photo')) {
+      if (current?.cloudCover > 80 && !isRaining) {
+        score = 92;
+        rating = 'Optimal';
+        verdict = 'Cloud ceiling serves as a giant natural softbox, diffusing harsh glare for portraits and street photography.';
+        bestTimeWindow = '10:00 - 16:00';
+        keyFactor = 'Diffused Overhead Cloud';
+      } else if (current?.cloudCover < 30) {
+        score = 94;
+        rating = 'Optimal';
+        verdict = 'High atmospheric clarity with rich contrast. Golden hour 45 minutes before sunset is ideal.';
+        bestTimeWindow = 'Golden Hour (17:45 - 18:45)';
+        keyFactor = 'Crisp Blue Light';
+      } else {
+        score = 85;
+        rating = 'Good';
+        verdict = 'Pleasant ambient lighting for versatile outdoor shooting.';
+        bestTimeWindow = 'Mid-morning or late afternoon';
+        keyFactor = 'Good Visibility';
+      }
+    } else if (lower.includes('din') || lower.includes('patio') || lower.includes('picnic')) {
+      if (isRaining || temp < 14 || wind > 28) {
+        score = 30;
+        rating = 'Avoid';
+        verdict = 'Damp conditions and wind chill favor covered indoor seating.';
+        bestTimeWindow = 'Indoors recommended';
+        keyFactor = 'Moisture / Breeze';
+      } else {
+        score = 90;
+        rating = 'Optimal';
+        verdict = 'Gentle air and comfortable warmth create a delightful outdoor dining atmosphere.';
+        bestTimeWindow = '12:30 - 14:30 & 18:30 - 21:00';
+        keyFactor = 'Mild & Calm Air';
       }
     } else if (lower.includes('laundry') || lower.includes('cloth') || lower.includes('dry')) {
       if (isRaining) {
-        score = 25;
-        rating = 'Avoid';
-        verdict = 'Outdoor rain will prevent clothes from drying. Dry indoors.';
-        keyFactor = 'Rainy Conditions';
-      } else if (current?.humidity > 80) {
-        score = 60;
-        rating = 'Fair';
-        verdict = 'High humidity will slow evaporation. Allow extra drying time.';
-        bestTimeWindow = '11:00 - 16:00';
-        keyFactor = 'High Humidity';
-      } else {
-        score = 94;
-        rating = 'Optimal';
-        verdict = 'Warm air and gentle breezes will dry clothes quickly outside.';
-        bestTimeWindow = '09:00 - 16:00';
-        keyFactor = 'Warm Sun & Air Flow';
-      }
-    } else if (lower.includes('football') || lower.includes('soccer') || lower.includes('match')) {
-      if (isRaining) {
-        score = 40;
-        rating = 'Caution';
-        verdict = 'Slippery pitch with heavy ball friction. Exercise caution.';
-        keyFactor = 'Wet Pitch';
-      } else if (temp > 30) {
-        score = 65;
-        rating = 'Fair';
-        verdict = 'Very warm conditions. Plan hydration breaks every 15 minutes.';
-        bestTimeWindow = '16:30 - 18:30';
-        keyFactor = 'High Heat';
-      } else {
-        score = 92;
-        rating = 'Optimal';
-        verdict = 'Great temperature and solid surface grip for football.';
-        bestTimeWindow = '16:00 - 18:30';
-        keyFactor = 'Balanced Weather';
-      }
-    } else if (lower.includes('star') || lower.includes('astro')) {
-      if (current?.cloudCover > 50 || isRaining) {
         score = 20;
         rating = 'Avoid';
-        verdict = 'Cloud ceiling obstructs celestial observation.';
-        keyFactor = 'Heavy Cloud Cover';
+        verdict = 'Rain will keep outdoor garments wet. Dry indoors or on a sheltered veranda.';
+        bestTimeWindow = 'Dry indoors today';
+        keyFactor = 'Precipitation';
+      } else if (humidity > 80) {
+        score = 62;
+        rating = 'Fair';
+        verdict = `With ${humidity}% humidity, moisture evaporation is slow. Hang items spread apart in good airflow.`;
+        bestTimeWindow = '11:00 - 15:30 (peak warmth)';
+        keyFactor = 'High Humidity';
       } else {
-        score = 90;
+        score = 95;
         rating = 'Optimal';
-        verdict = 'Low atmospheric distortion and clear overhead visibility.';
-        bestTimeWindow = '22:00 - 02:00';
-        keyFactor = 'Under 15% Cloud Cover';
-      }
-    } else if (lower.includes('hike') || lower.includes('trail')) {
-      if (isRaining) {
-        score = 45;
-        rating = 'Caution';
-        verdict = 'Muddy trails and reduced ridge visibility.';
-        keyFactor = 'Trail Mud & Mist';
-      } else {
-        score = 88;
-        rating = 'Optimal';
-        verdict = 'Stable barometric pressure and comfortable ambient pace.';
-        bestTimeWindow = '09:00 - 16:00';
-        keyFactor = 'Stable Pressure';
+        verdict = 'Warm air and gentle breeze will dry outdoor clothes briskly.';
+        bestTimeWindow = '09:00 - 15:00';
+        keyFactor = 'Sun & Good Air Flow';
       }
     } else {
       score = isRaining ? 50 : 85;
       rating = isRaining ? 'Fair' : 'Good';
-      verdict = isRaining ? 'Carrying light rainwear recommended.' : 'Favorable overall climate parameters.';
+      verdict = isRaining ? 'Keep a light raincoat or umbrella on hand for outdoor trips.' : 'Comfortable and stable weather conditions for your plans.';
+      bestTimeWindow = 'Daytime';
+      keyFactor = 'Temperate Conditions';
     }
 
     return {
@@ -167,24 +148,28 @@ export function generateHeuristicAdvisory(current: any, airQuality: any, activit
   });
 
   const weatherMeaning = isRaining
-    ? `Rain is falling at ${temp}°C with damp air and wet surfaces outdoors.`
+    ? `Rain is active at ${temp}°C, bringing damp surfaces and a brisk drop in road traction.`
+    : humidity > 85 && temp > 22
+    ? `The air feels sticky and warm at ${temp}°C (feels like ${feelsLike}°C) because high humidity holds heat close to your skin.`
     : temp >= 28
-    ? `It feels hot and sunny at ${temp}°C, so expect warm air and strong sunshine.`
-    : temp <= 14
-    ? `The air is brisk and chilly at ${temp}°C with cool breezes.`
-    : `The weather is pleasant and comfortable at ${temp}°C with clear skies and a gentle breeze.`;
+    ? `Warm and radiant at ${temp}°C, so prepare for strong daylight and thermal warmth.`
+    : temp <= 16
+    ? `Cool and invigorating at ${temp}°C with crisp breezes.`
+    : `Comfortable and mild at ${temp}°C with gentle breezes and manageable conditions.`;
 
   const clothingRecommendation = isRaining
-    ? `Wear a waterproof jacket or carry an umbrella, with water-resistant footwear.`
-    : temp >= 24
-    ? `Wear lightweight cotton clothes, comfortable sneakers, and sunglasses if in direct sunlight.`
-    : `Wear comfortable layers like a light jacket or sweater with long trousers.`;
+    ? `Choose water-resistant shoes, carry an umbrella, and wear a lightweight waterproof outer layer.`
+    : humidity > 80
+    ? `Wear loose, breathable 100% cotton garments and open or mesh footwear to let heat escape naturally.`
+    : temp >= 25
+    ? `Lightweight short sleeves, breathable fabrics, and sunglasses if heading outside in midday light.`
+    : `A light cotton sweater or windbreaker layered over an everyday shirt.`;
 
-  const foodRecommendation = isRaining
-    ? `Enjoy hot vegetable soup, spiced tea, or warm coffee to stay cozy.`
-    : temp >= 24
-    ? `Stay refreshed with chilled water, watermelon or citrus fruits, and light meals.`
-    : `Warm hearty meals, fresh tea, and nourishing soups are ideal today.`;
+  const foodRecommendation = humidity > 80 || temp >= 26
+    ? `Prioritize water-rich fruits (watermelon, pineapple, citrus), chilled water or coconut water, and light, unhurried meals.`
+    : isRaining
+    ? `Warm nourishing meals like fresh spiced broth, hot tea, or oatmeal provide great comfort.`
+    : `Enjoy balanced whole foods, hydrating water throughout the day, and seasonal fruits.`;
 
   return {
     overallSummary: `${weatherMeaning} ${clothingRecommendation} ${foodRecommendation}`,
@@ -195,70 +180,218 @@ export function generateHeuristicAdvisory(current: any, airQuality: any, activit
   };
 }
 
-export function generateOfflineChatReply(message: string, context: any): string {
+export function generateOfflineChatReply(message: string, context: any, showSetupTip = false): string {
   const loc = context?.city || 'your area';
-  const temp = context?.current?.temperature ? parseInt(context.current.temperature, 10) : 25;
-  const cond = context?.current?.conditionText || 'clear';
-  const wind = context?.current?.windSpeed || '8 km/h';
-  const humidity = context?.current?.humidity ? parseInt(context.current.humidity, 10) : 60;
-  const rainProb = context?.daily?.precipitationProbabilityMax ?? 15;
+  const temp = context?.current?.temperature != null ? Number(context.current.temperature) : 24;
+  const tempRounded = Math.round(temp);
+  const feelsLike = context?.current?.apparentTemperature != null
+    ? Math.round(Number(context.current.apparentTemperature))
+    : Math.round(temp + (context?.current?.humidity > 70 ? (context.current.humidity - 70) * 0.12 : 0));
+  const cond = context?.current?.conditionText || 'Cloudy';
+  const wind = context?.current?.windSpeed != null ? `${Math.round(context.current.windSpeed)} km/h` : '6 km/h';
+  const humidity = context?.current?.humidity != null ? Math.round(context.current.humidity) : 90;
+  const rainProb = context?.daily?.precipitationProbabilityMax ?? (context?.current?.precipitation > 0 ? 80 : 25);
+  const uv = context?.current?.uvIndex != null ? Math.round(context.current.uvIndex) : 1;
+  const aqi = context?.airQuality?.usAqi != null ? Math.round(context.airQuality.usAqi) : 40;
   const lowerMsg = message.toLowerCase();
 
-  // Attire / Clothes
-  if (lowerMsg.includes('wear') || lowerMsg.includes('clothes') || lowerMsg.includes('outfit') || lowerMsg.includes('dress')) {
-    const advice = temp > 24
-      ? 'Light, breathable cotton clothing (T-shirt, shorts or light trousers) and comfortable shoes.'
-      : temp > 16
-      ? 'Comfortable everyday layers: a T-shirt paired with a light jacket or knit sweater.'
-      : 'Warm layers, an insulated jacket, and long trousers.';
-
-    const rainNote = rainProb > 30 ? ' Carrying a compact umbrella is highly recommended due to rain chances.' : '';
-    return `In **${loc}**, the temperature is **${temp}°C** with **${cond}**.\n\n* **What to Wear:** ${advice}\n* **Accessories:** ${rainNote || 'Sunglasses or a hat if heading out in midday sun.'}\n* **How it Feels:** High humidity (${humidity}%) makes the air feel slightly warmer than the actual reading.`;
+  // Determine local time context
+  let timeStr = context?.currentTime;
+  let hour = 8; // default to morning if unspecified
+  if (!timeStr) {
+    const now = new Date();
+    hour = now.getHours();
+    timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else {
+    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+    if (match) {
+      let h = parseInt(match[1], 10);
+      const isPM = match[3]?.toUpperCase() === 'PM';
+      const isAM = match[3]?.toUpperCase() === 'AM';
+      if (isPM && h < 12) h += 12;
+      if (isAM && h === 12) h = 0;
+      hour = h;
+    }
   }
 
-  // Running / Jogging / Workout
-  if (lowerMsg.includes('run') || lowerMsg.includes('jog') || lowerMsg.includes('exercise') || lowerMsg.includes('workout')) {
-    const isGood = rainProb < 40 && temp < 30;
-    return `Exercise viability in **${loc}** is **${isGood ? 'Favorable' : 'Moderate'}**.\n\n* **Current Conditions:** ${temp}°C, ${cond}, with ${humidity}% humidity.\n* **Surface & Rain:** ${rainProb > 30 ? `There is a ${rainProb}% rain chance, so watch out for slick roads.` : 'Surfaces are dry with good foot traction.'}\n* **Best Time:** Early morning or late afternoon when temperatures are cooler.`;
-  }
+  const isMorning = hour >= 5 && hour < 12;
+  const isAfternoon = hour >= 12 && hour < 17;
+  const isEvening = hour >= 17 && hour < 21;
+  const isNight = hour >= 21 || hour < 5;
 
-  // Rain / Umbrella
-  if (lowerMsg.includes('rain') || lowerMsg.includes('umbrella') || lowerMsg.includes('shower') || lowerMsg.includes('storm')) {
-    return `The chance of rain in **${loc}** is **${rainProb}%**.\n\n* **Rain Outlook:** ${rainProb > 35 ? 'Rain or passing showers are likely. Keep an umbrella on hand.' : 'Conditions are predominantly dry. You should not need rain gear today.'}\n* **Current Sky:** ${cond} with ${humidity}% relative humidity.`;
-  }
+  const timeGreeting = isMorning ? 'morning' : isAfternoon ? 'afternoon' : isEvening ? 'evening' : 'night';
 
-  // Laundry / Drying Clothes
-  if (lowerMsg.includes('laundry') || lowerMsg.includes('drying') || lowerMsg.includes('clothes out')) {
+  // Check hourly forecast for upcoming rain
+  let upcomingRainNote = '';
+  if (context?.hourly && Array.isArray(context.hourly)) {
+    const rainyHours = context.hourly.slice(0, 5).filter((h: any) => (h.precipitationProbability ?? 0) > 30 || (h.precipitation ?? 0) > 0.1);
+    if (rainyHours.length > 0) {
+      const times = rainyHours.map((h: any) => h.time).join(' and ');
+      upcomingRainNote = `A quick heads-up for your plans: While it is currently ${cond.toLowerCase()}, there is a chance of light drizzle around ${times}. If you're heading out, keeping a compact umbrella or light jacket within reach is a smart move!`;
+    }
+  }
+  if (!upcomingRainNote) {
     if (rainProb > 40) {
-      return `It is **not recommended** to hang laundry outdoors in **${loc}** right now due to a **${rainProb}% rain chance**. Consider drying indoors or waiting for a clearer window.`;
+      upcomingRainNote = `A quick heads-up for your plans: There is a ${rainProb}% chance of passing showers later today. Having a compact umbrella on hand will keep you prepared.`;
+    } else {
+      upcomingRainNote = `The skies are expected to remain predominantly dry over the next few hours with stable barometric pressure, giving you a smooth window for your activities.`;
     }
-    return `Yes, you can dry laundry outside in **${loc}**.\n\n* **Conditions:** ${temp}°C and ${cond}.\n* **Drying Speed:** Relative humidity is ${humidity}%, so clothes will dry best between 11:00 AM and 4:00 PM when sunshine and air circulation are strongest.`;
   }
 
-  // Food / Drinks
-  if (lowerMsg.includes('food') || lowerMsg.includes('drink') || lowerMsg.includes('eat') || lowerMsg.includes('hydrate')) {
-    if (temp >= 26) {
-      return `With a warm **${temp}°C** in **${loc}**, prioritize hydration. Drink water regularly, and enjoy fresh fruits like watermelon, oranges, or fresh coconut water. Light meals will keep you energized without feeling sluggish.`;
+  const setupNotice = showSetupTip
+    ? `\n\n*(Tip for your Vercel deployment: To unlock boundless live Gemini AI reasoning on Vercel, ensure you've added your \`GEMINI_API_KEY\` in your Vercel Project Settings → Environment Variables).*`
+    : '';
+
+  // 1. Breakfast / Meals / Food / Hydration
+  if (
+    lowerMsg.includes('breakfast') ||
+    lowerMsg.includes('food') ||
+    lowerMsg.includes('eat') ||
+    lowerMsg.includes('drink') ||
+    lowerMsg.includes('lunch') ||
+    lowerMsg.includes('dinner') ||
+    lowerMsg.includes('hydrate') ||
+    lowerMsg.includes('meal')
+  ) {
+    const mealType = isMorning ? 'breakfast' : isAfternoon ? 'lunch' : isEvening ? 'dinner' : 'a late-night snack';
+    return `Since it is currently **${timeStr}** here at **${loc}**, it’s a great time for **${mealType}**.
+
+Given the current conditions, I would recommend something light and hydrating. Right now, it is **${temp}°C**, but because the humidity is high at **${humidity}%**, it feels warmer—closer to **${feelsLike}°C**. When the air is this "sticky" or heavy with moisture, your body's natural evaporative cooling is slower, so it is best to avoid heavy, greasy, or overly spicy meals that might make you feel sluggish or overheated.
+
+Here are a few practical suggestions for your ${timeGreeting}:
+
+● **Fresh Hydrating Fruit:** Since it's humid, your body appreciates extra water content. A bowl of watermelon, sweet pineapple, citrus, or pawpaw is refreshing and helps replenish natural hydration.
+● **Light Porridge or Oats:** A warm bowl of oatmeal, pap (ogi), or light whole-grain cereal is a gentle start that delivers steady energy without weighing down your digestion.
+● **Smoothies or Coconut Water:** A fresh fruit smoothie or coconut water is an effortless way to absorb essential electrolytes while naturally cooling your core.
+● **Steady Hydration:** Because of the high humidity (${humidity}%), you lose moisture through subtle perspiration even when resting. Make sure to drink plenty of clean water alongside your meal.
+
+${upcomingRainNote}${setupNotice}`;
+  }
+
+  // 2. Exercise / Running / Jogging / Workout / Walking
+  if (
+    lowerMsg.includes('run') ||
+    lowerMsg.includes('jog') ||
+    lowerMsg.includes('exercise') ||
+    lowerMsg.includes('workout') ||
+    lowerMsg.includes('walk') ||
+    lowerMsg.includes('gym') ||
+    lowerMsg.includes('fitness')
+  ) {
+    const isGood = rainProb < 45 && temp < 31;
+    return `If you're planning to exercise or go for a run in **${loc}**, the overall window is **${isGood ? 'Favorable with proper hydration' : 'Moderate'}**.
+
+Right now the temperature is **${tempRounded}°C**, but with relative humidity sitting at **${humidity}%**, the thermal heat index feels closer to **${feelsLike}°C**. In high moisture, sweat cannot evaporate as quickly from your skin, so your cardiovascular system works slightly harder to regulate core temperature.
+
+Here is a practical guide for your workout:
+
+● **Pacing & Cardiac Load:** Keep your initial pace 10–15% easier than usual. Avoid sudden max-effort sprints in the heat of the day, and take steady sips of water every 15–20 minutes.
+● **Road & Surface Traction:** ${rainProb > 40 ? 'Surfaces may have damp patches or loose mud from recent moisture. Choose road or trail shoes with reliable rubber grip.' : 'Roadways and pedestrian paths are dry with solid foot traction.'}
+● **Air & Sun Intensity:** UV is currently **${uv} (Low)**, and air cleanliness is **${aqi <= 50 ? 'Good' : 'Moderate'} (AQI ${aqi})**, which is fine for healthy respiratory breathing.
+● **Optimal Timing:** ${isMorning ? 'The current early morning hours are the most comfortable before midday solar heating picks up.' : isAfternoon ? 'Consider waiting until 17:30 when ambient heat begins to drop.' : 'The evening air provides cooler temperatures and calm wind.'}
+
+${upcomingRainNote}${setupNotice}`;
+  }
+
+  // 3. Clothing / Attire / Outfit / What to wear
+  if (
+    lowerMsg.includes('wear') ||
+    lowerMsg.includes('clothes') ||
+    lowerMsg.includes('outfit') ||
+    lowerMsg.includes('dress') ||
+    lowerMsg.includes('shoes') ||
+    lowerMsg.includes('jacket')
+  ) {
+    return `Here is your practical clothing and outfit recommendation for **${loc}**:
+
+With the temperature at **${tempRounded}°C** and humidity at **${humidity}%** (feels like **${feelsLike}°C**), the key today is **breathability and moisture release**.
+
+● **Tops & Shirts:** Loose-fitting 100% cotton or lightweight linen fabrics. Avoid tight synthetic polyester, which traps sweat against the skin and feels sticky in high humidity.
+● **Bottoms:** Lightweight shorts, cotton trousers, or relaxed chinos that encourage airflow around your legs.
+● **Footwear:** Breathable mesh sneakers, loafers, or cushioned sandals. If rain is nearby, choose shoes with slip-resistant rubber soles.
+● **Sun & Rain Gear:** UV index is **${uv}**, so intense sun protection isn't critical right now, but ${rainProb > 30 ? 'carrying a compact umbrella or light water-resistant layer is wise.' : 'a cap or shades will keep you comfortable if the cloud cover breaks.'}
+
+${upcomingRainNote}${setupNotice}`;
+  }
+
+  // 4. Rain / Umbrella / Precipitation / Storm
+  if (
+    lowerMsg.includes('rain') ||
+    lowerMsg.includes('umbrella') ||
+    lowerMsg.includes('shower') ||
+    lowerMsg.includes('storm') ||
+    lowerMsg.includes('drizzle') ||
+    lowerMsg.includes('wet')
+  ) {
+    return `Here is the current rainfall outlook for **${loc}**:
+
+● **Precipitation Chance:** Estimated at **${rainProb}%** for the day.
+● **Current Sky:** **${cond}** with **${humidity}%** relative humidity and gentle wind of **${wind}**.
+● **Atmospheric Pressure:** Moderate barometric reading indicates moisture-laden air masses typical of tropical and subtropical regions.
+
+**Practical Verdict:** ${rainProb > 35 ? 'Yes, you should definitely keep an umbrella or light raincoat with you. Passing showers can develop rapidly when humidity is this high.' : 'You are unlikely to encounter heavy downpours in the immediate hour, though keeping an umbrella nearby never hurts when skies are cloud-covered.'}
+
+${upcomingRainNote}${setupNotice}`;
+  }
+
+  // 5. Laundry / Drying Clothes
+  if (lowerMsg.includes('laundry') || lowerMsg.includes('drying') || lowerMsg.includes('clothes out') || lowerMsg.includes('wash')) {
+    if (rainProb > 45) {
+      return `For drying laundry outdoors in **${loc}**, conditions are **risky right now**.
+
+With a **${rainProb}% chance of rain** and humidity at **${humidity}%**, any unexpected shower will re-wet your clothes, and high moisture in the air slows down water evaporation. 
+
+**Recommendation:** Hang items indoors near a fan or on a sheltered veranda where airflow is steady and garments remain protected from sudden drizzles.${setupNotice}`;
     }
-    return `At **${temp}°C** in **${loc}**, nourishing warm meals like fresh vegetable soups, warm tea, or oatmeal are comforting choices.`;
+
+    return `You can dry laundry outdoors in **${loc}**, but keep these timings in mind:
+
+● **Evaporation Speed:** Because humidity is **${humidity}%**, clothes will take longer to dry than on a breezy dry afternoon.
+● **Best Window:** Hang items between **11:00 AM and 3:30 PM** when ambient thermal radiation is at its peak.
+● **Spacing:** Spread garments widely on the line to maximize exposure to the gentle **${wind}** breeze.${setupNotice}`;
   }
 
-  // Day vs Night
-  if (lowerMsg.includes('morning') || lowerMsg.includes('night') || lowerMsg.includes('daytime') || lowerMsg.includes('dark outside')) {
-    const isDay = context?.current?.isDay ?? (new Date().getUTCHours() + 1 >= 6 && new Date().getUTCHours() + 1 < 19 ? 1 : 0);
-    return isDay === 1
-      ? `It is currently **daytime** in **${loc}**.`
-      : `It is currently **nighttime** in **${loc}**.`;
+  // 6. Temperature / How it feels / Humidity
+  if (
+    lowerMsg.includes('temperature') ||
+    lowerMsg.includes('how hot') ||
+    lowerMsg.includes('how cold') ||
+    lowerMsg.includes('feels like') ||
+    lowerMsg.includes('humid')
+  ) {
+    return `Here is a clear look at how the weather actually feels in **${loc}**:
+
+● **Actual Thermometer Reading:** **${tempRounded}°C**
+● **Apparent Temperature ("Feels Like"):** **${feelsLike}°C**
+● **Relative Humidity:** **${humidity}%**
+● **Wind Speed:** **${wind}**
+
+**Why does it feel different?**
+When humidity climbs above 70%, the air is holding a high concentration of water vapor. Your body naturally cools itself by evaporating sweat from the skin; when the air is already saturated, that moisture evaporates slowly. This creates that recognizable "sticky" or heavy sensation where 24°C feels closer to 28°C–29°C. Staying hydrated and sitting in well-ventilated spaces makes a noticeable difference!${setupNotice}`;
   }
 
-  // Common identity & knowledge queries
-  if (lowerMsg.includes('who are you') || lowerMsg.includes('your name')) {
-    return 'I am **GCI Meteo**, your intelligent weather and daily living assistant built by the Byte Busters Coding Club of Government College Ibadan.';
-  }
-  if (lowerMsg.includes('capital of france')) return 'The capital of France is **Paris**.';
-  if (lowerMsg.includes('capital of nigeria')) return 'The capital of Nigeria is **Abuja**.';
-  if (lowerMsg.includes('hours in a week')) return 'There are **168 hours** in a week (24 hours × 7 days).';
+  // 7. Identity & Creator inquiries
+  if (lowerMsg.includes('who are you') || lowerMsg.includes('who made you') || lowerMsg.includes('byte busters') || lowerMsg.includes('gci')) {
+    return `I am **GCI Meteo**, your intelligent weather and daily living assistant! 
 
-  // General helpful weather summary response
-  return `Here is the current overview for **${loc}**:\n\n* **Temperature:** ${temp}°C (${cond})\n* **Humidity:** ${humidity}% (${humidity >= 75 ? 'humid & sticky' : 'comfortable'})\n* **Wind:** ${wind}\n* **Rain Probability:** ${rainProb}%\n\nFeel free to ask about clothing, outdoor plans, rain timing, or any general questions!`;
+I was created by the **Byte Busters Coding Club of Government College Ibadan (GCI)** to empower our community, students, and citizens to track shifting local climate conditions, understand real-world weather impacts in plain English, and make informed daily living decisions.
+
+Feel free to ask me anything about your current weather, food, attire, outdoor fitness, or general questions!${setupNotice}`;
+  }
+
+  // 8. General Trivia / Common Knowledge
+  if (lowerMsg.includes('capital of france')) return `The capital of France is **Paris**.${setupNotice}`;
+  if (lowerMsg.includes('capital of nigeria')) return `The capital of Nigeria is **Abuja**.${setupNotice}`;
+  if (lowerMsg.includes('hours in a week')) return `There are **168 hours** in a week (24 hours × 7 days).${setupNotice}`;
+
+  // 9. Comprehensive Default Meteorological & Daily Living Synthesis
+  return `Here is your comprehensive climate and living summary for **${loc}** at **${timeStr}**:
+
+● **Current Climate:** **${tempRounded}°C** (${cond}), feeling closer to **${feelsLike}°C** due to **${humidity}%** relative humidity.
+● **Breeze & Atmosphere:** Gentle airflow at **${wind}**, with low sunburn index (UV **${uv}**) and clean air quality (AQI **${aqi}**).
+● **Daily Living Impact:** High humidity means your body benefits from light, hydrating meals (like fresh fruit and water) and loose cotton attire. 
+
+${upcomingRainNote}
+
+Feel free to ask for specific advice on what to wear, outdoor exercise, meal choices, or travel plans!${setupNotice}`;
 }

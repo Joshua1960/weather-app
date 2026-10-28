@@ -18,8 +18,15 @@ export default async function handler(req: any, res: any) {
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
     const { location, current, hourlySummary, dailySummary, airQuality, activities, customActivity } = body;
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey =
+      process.env.GEMINI_API_KEY ||
+      process.env.VITE_GEMINI_API_KEY ||
+      process.env.GOOGLE_API_KEY ||
+      process.env.API_KEY ||
+      process.env.GOOGLE_GENAI_API_KEY;
+
     if (!apiKey) {
+      console.warn('[Vercel Advisory API] No GEMINI_API_KEY found in process.env. Using heuristic advisory engine.');
       const fallback = generateHeuristicAdvisory(current, airQuality, activities || [], customActivity);
       return res.status(200).json(fallback);
     }
@@ -34,7 +41,7 @@ export default async function handler(req: any, res: any) {
     });
 
     const prompt = `
-You are GCI Meteo's Living & Meteorological Advisory Intelligence.
+You are GCI Meteo's Living & Meteorological Advisory Intelligence, built by Government College Ibadan Byte Busters.
 Evaluate local weather conditions for ${location?.name || 'this location'}:
 - Current: ${current?.temperature}°C, Feels like: ${current?.apparentTemperature}°C, Condition: ${current?.conditionText}, Wind: ${current?.windSpeed} km/h, Humidity: ${current?.humidity}%, UV: ${current?.uvIndex}
 - Air Quality: US AQI ${airQuality?.usAqi} (${airQuality?.statusText})
@@ -62,17 +69,41 @@ Respond with strict JSON matching this structure:
 }
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
-      },
-    });
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+    let parsedResult: any = null;
 
-    const parsed = JSON.parse(response.text || '{}');
-    return res.status(200).json(parsed);
+    for (const model of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+          },
+        });
+
+        if (response?.text) {
+          try {
+            parsedResult = JSON.parse(response.text.trim());
+            break;
+          } catch {
+            const clean = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+            parsedResult = JSON.parse(clean);
+            break;
+          }
+        }
+      } catch (err: any) {
+        console.warn(`[Vercel Advisory API] Model ${model} failed:`, err?.message || err);
+      }
+    }
+
+    if (parsedResult) {
+      return res.status(200).json(parsedResult);
+    }
+
+    const fallback = generateHeuristicAdvisory(body.current, body.airQuality, body.activities || [], body.customActivity);
+    return res.status(200).json(fallback);
   } catch (err: any) {
     console.error('Vercel Advisory Error:', err?.message || err);
     const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};

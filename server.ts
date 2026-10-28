@@ -16,7 +16,13 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 app.use(express.json());
 
 // Initialize Gemini SDK with telemetry header
-const geminiApiKey = process.env.GEMINI_API_KEY;
+const geminiApiKey =
+  process.env.GEMINI_API_KEY ||
+  process.env.VITE_GEMINI_API_KEY ||
+  process.env.GOOGLE_API_KEY ||
+  process.env.API_KEY ||
+  process.env.GOOGLE_GENAI_API_KEY;
+
 let ai: GoogleGenAI | null = null;
 if (geminiApiKey) {
   ai = new GoogleGenAI({
@@ -194,12 +200,12 @@ app.post('/api/ai/chat', async (req, res) => {
       return res.status(400).json({ error: 'Messages array is required' });
     }
 
+    const lastUserMsg = messages[messages.length - 1]?.content || '';
     const client = ai || (process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null);
 
     if (!client) {
-      const lastUserMsg = messages[messages.length - 1]?.content || '';
       return res.json({
-        reply: generateOfflineChatReply(lastUserMsg, weatherContext),
+        reply: generateOfflineChatReply(lastUserMsg, weatherContext, true),
       });
     }
 
@@ -238,22 +244,44 @@ COMMUNICATION STYLE:
       parts: [{ text: m.content }],
     }));
 
-    const response = await client.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents: contents,
-      config: {
-        systemInstruction: systemInstruction,
-        temperature: 0.6,
-        maxOutputTokens: 800,
-      },
-    });
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];
+    let generatedReply: string | null = null;
+    let lastError: any = null;
 
-    return res.json({ reply: response.text || 'Insight generated.' });
+    for (const model of modelsToTry) {
+      try {
+        const response = await client.models.generateContent({
+          model,
+          contents: contents,
+          config: {
+            systemInstruction: systemInstruction,
+            temperature: 0.7,
+            maxOutputTokens: 1000,
+          },
+        });
+
+        if (response?.text) {
+          generatedReply = response.text;
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Local Server Chat API] Model ${model} failed:`, err?.message || err);
+      }
+    }
+
+    if (generatedReply) {
+      return res.json({ reply: generatedReply });
+    }
+
+    return res.json({
+      reply: generateOfflineChatReply(lastUserMsg, req.body?.weatherContext, true),
+    });
   } catch (error: any) {
     console.error('AI Chat Error DETAILS:', error?.message || error);
     const lastUserMsg = req.body?.messages?.[req.body?.messages?.length - 1]?.content || '';
     return res.json({
-      reply: generateOfflineChatReply(lastUserMsg, req.body?.weatherContext),
+      reply: generateOfflineChatReply(lastUserMsg, req.body?.weatherContext, true),
     });
   }
 });
