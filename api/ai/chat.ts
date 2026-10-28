@@ -68,11 +68,53 @@ COMMUNICATION STYLE:
 - Never use the word 'overcast'; describe clouds as 'cloudy' or 'cloud-covered'.
 `;
 
-    const recentMessages = messages.slice(-6);
-    const contents = recentMessages.map((m: any) => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.content }],
-    }));
+    // Sanitize multi-turn conversation history for the Gemini API:
+    // 1. Filter out empty or whitespace-only messages
+    // 2. Strip leading 'model' messages (Gemini requires turn 0 to be 'user')
+    // 3. Merge adjacent messages of the same role so roles strictly alternate (user -> model -> user)
+    // 4. Ensure contents ends with the user's latest query
+    const cleanedMessages: { role: 'user' | 'model'; text: string }[] = messages
+      .filter((m: any) => m && typeof m.content === 'string' && m.content.trim().length > 0)
+      .map((m: any) => ({
+        role: m.role === 'user' ? ('user' as const) : ('model' as const),
+        text: m.content.trim(),
+      }));
+
+    // Discard leading model turns (e.g. initial greeting)
+    while (cleanedMessages.length > 0 && cleanedMessages[0].role !== 'user') {
+      cleanedMessages.shift();
+    }
+
+    // Merge adjacent identical roles to ensure strict user/model alternation
+    const alternatingContents: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+    for (const item of cleanedMessages) {
+      if (alternatingContents.length > 0 && alternatingContents[alternatingContents.length - 1].role === item.role) {
+        alternatingContents[alternatingContents.length - 1].parts[0].text += `\n\n${item.text}`;
+      } else {
+        alternatingContents.push({
+          role: item.role,
+          parts: [{ text: item.text }],
+        });
+      }
+    }
+
+    // Ensure the conversation ends with the user's message
+    if (alternatingContents.length === 0 || alternatingContents[alternatingContents.length - 1].role !== 'user') {
+      alternatingContents.push({
+        role: 'user',
+        parts: [{ text: lastUserMsg || 'What are the current meteorological conditions and living recommendations?' }],
+      });
+    }
+
+    // Take the most recent alternating turns (up to 6)
+    let contents = alternatingContents.slice(-6);
+    // Ensure the window still starts with user
+    while (contents.length > 0 && contents[0].role !== 'user') {
+      contents.shift();
+    }
+    if (contents.length === 0) {
+      contents = [{ role: 'user', parts: [{ text: lastUserMsg }] }];
+    }
 
     // Cascade through supported Gemini models: try gemini-3.8-flash first, then gemini-3.1-flash-lite
     const modelsToTry = ['gemini-3.8-flash', 'gemini-3.1-flash-lite'];

@@ -394,7 +394,204 @@ With a **${rainProb}% chance of rain** and humidity at **${humidity}%**, any une
 When humidity climbs above 70%, the air is holding a high concentration of water vapor. Your body naturally cools itself by evaporating sweat from the skin; when the air is already saturated, that moisture evaporates slowly. This creates that recognizable "sticky" or heavy sensation where 24°C feels closer to 28°C–29°C. Staying hydrated and sitting in well-ventilated spaces makes a noticeable difference!${setupNotice}`;
   }
 
-  // 7. Identity & Creator inquiries
+  // 7. Greetings & Pleasantries
+  if (
+    lowerMsg === 'hi' ||
+    lowerMsg === 'hello' ||
+    lowerMsg.startsWith('good morning') ||
+    lowerMsg.startsWith('good afternoon') ||
+    lowerMsg.startsWith('good evening') ||
+    lowerMsg.startsWith('hey') ||
+    lowerMsg === 'greetings'
+  ) {
+    return `Good ${timeGreeting}! I am **GCI Meteo**, keeping watch over local conditions here at **${loc}**.
+    
+Right now it is **${tempRounded}°C** (${cond}) with humidity at **${humidity}%**, feeling like **${feelsLike}°C**. The air is calm and conditions are steady.
+
+How can I help you plan your day? You can ask me about breakfast ideas, optimal workout times, outfit suggestions, travel viability, or how conditions will evolve later today!${setupNotice}`;
+  }
+
+  // 8. Thank you & Acknowledgments
+  if (
+    lowerMsg.includes('thank') ||
+    lowerMsg.includes('thanks') ||
+    lowerMsg.includes('awesome') ||
+    lowerMsg.includes('perfect') ||
+    lowerMsg.includes('helpful') ||
+    lowerMsg === 'ok' ||
+    lowerMsg === 'okay' ||
+    lowerMsg === 'understood' ||
+    lowerMsg === 'great'
+  ) {
+    return `You're very welcome! I'm always here to help you stay comfortable, healthy, and ahead of shifting weather here at **${loc}**.
+
+If you'd like an update later as temperatures or rain chances shift throughout the ${timeGreeting}, just tap or ask away. Have a safe and productive day!${setupNotice}`;
+  }
+
+  // 9. Follow-ups, Elaborations & "Why" Questions ("tell me more", "why", "elaborate", "what else")
+  if (
+    lowerMsg.includes('tell me more') ||
+    lowerMsg.includes('more detail') ||
+    lowerMsg.includes('elaborate') ||
+    lowerMsg.includes('why') ||
+    lowerMsg.includes('explain') ||
+    lowerMsg.includes('what else') ||
+    lowerMsg.includes('how come') ||
+    lowerMsg.includes('give me more')
+  ) {
+    return `Here is a deeper look into the meteorological forces and practical realities currently shaping **${loc}**:
+
+● **Atmospheric Moisture Dynamics:** High relative humidity (${humidity}%) means the air is holding a substantial volume of vapor. This creates a thermal insulating blanket that retains radiant ground heat, keeping ambient temperatures from dropping quickly and preventing sweat from evaporating.
+● **Personal Energy Conservation:** When your skin cannot evaporate sweat rapidly, your heart works harder to pump blood to surface capillaries for cooling. This explains why an ordinary walk might leave you feeling unexpectedly tired or flushed.
+● **Ventilation Strategy:** Keep windows with mesh screens open to create cross-breezes, or run ceiling fans on medium speed to keep air circulating over your skin.
+● **Looking Ahead:** ${upcomingRainNote}
+
+Feel free to ask about any specific activity, tomorrow's projection, or food choices!${setupNotice}`;
+  }
+
+  // 10. Tomorrow, Future Projections & Comparing Days ("tomorrow", "later", "tonight", "compare")
+  if (
+    lowerMsg.includes('tomorrow') ||
+    lowerMsg.includes('later') ||
+    lowerMsg.includes('tonight') ||
+    lowerMsg.includes('this evening') ||
+    lowerMsg.includes('forecast') ||
+    lowerMsg.includes('future') ||
+    lowerMsg.includes('upcoming') ||
+    lowerMsg.includes('next day') ||
+    lowerMsg.includes('weekend') ||
+    lowerMsg.includes('compare')
+  ) {
+    const tmrw = context?.tomorrow;
+    const tmrwMax = tmrw?.maxTemp || `${tempRounded + 1}°C`;
+    const tmrwMin = tmrw?.minTemp || `${Math.max(20, tempRounded - 4)}°C`;
+    const tmrwCond = tmrw?.condition || cond;
+    const tmrwRain = tmrw?.rainChance || `${Math.round(rainProb)}%`;
+
+    return `Here is the outlook and timeline for **${loc}**:
+
+● **Later Today:** Temperatures will gradually peak before leveling off toward sunset. ${upcomingRainNote}
+● **Tomorrow's Forecast:** High of **${tmrwMax}** and low of **${tmrwMin}**, with conditions expected to be **${tmrwCond}**.
+● **Rain Outlook for Tomorrow:** Rain probability is currently estimated at **${tmrwRain}**.
+● **Key Comparison:** Tomorrow is projected to have similar moisture levels to today. If you have outdoor chores, laundry, or athletic workouts, early morning remains the premier window before midday heat accumulates.
+
+Would you like advice on planning outdoor travel or activities for tomorrow?${setupNotice}`;
+  }
+
+  // 11. Outdoor Activities, Sightseeing & "Is it safe to go out?"
+  if (
+    lowerMsg.includes('go out') ||
+    lowerMsg.includes('going out') ||
+    lowerMsg.includes('outdoor') ||
+    lowerMsg.includes('safe to go') ||
+    lowerMsg.includes('activities') ||
+    lowerMsg.includes('activity') ||
+    lowerMsg.includes('what should i do') ||
+    lowerMsg.includes('sightseeing') ||
+    lowerMsg.includes('visit') ||
+    lowerMsg.includes('hang out')
+  ) {
+    const safeVerdict = rainProb < 50 ? 'Safe and favorable' : 'Proceed with rain awareness';
+    return `Here is your outdoor activity evaluation for **${loc}**:
+
+● **Verdict:** **${safeVerdict}**. Current temperature is **${tempRounded}°C** with **${wind}** breeze and **${cond}** skies.
+● **Thermal Comfort:** Feels like **${feelsLike}°C** due to **${humidity}%** humidity. Stay in shaded or breezy spots if staying outdoors for extended periods.
+● **Sun & Surface Safety:** UV index is **${uv} (Low)**, and ground traction is generally solid. ${rainProb > 30 ? 'However, sudden passing showers are possible, so carrying a pocket umbrella is recommended.' : 'Dry roads and stable atmospheric pressure make walking and transit comfortable.'}
+● **Recommended Venues:** Open-air verandas with overhead fans, shaded parks, or sheltered local markets are great choices today.${setupNotice}`;
+  }
+
+  // 12. Commuting, Driving, Traffic & Travel
+  if (
+    lowerMsg.includes('drive') ||
+    lowerMsg.includes('driving') ||
+    lowerMsg.includes('commute') ||
+    lowerMsg.includes('traffic') ||
+    lowerMsg.includes('road') ||
+    lowerMsg.includes('travel') ||
+    lowerMsg.includes('flight') ||
+    lowerMsg.includes('trip') ||
+    lowerMsg.includes('journey')
+  ) {
+    return `Here is your travel and commuting briefing for **${loc}**:
+
+● **Road Surface & Grip:** ${rainProb > 40 ? 'Pavements may have wet sections; maintain a generous following distance to account for slick asphalt and water runoff.' : 'Roads are currently dry with standard vehicle traction.'}
+● **Visibility & Sightlines:** Cloud cover is moderate with clear horizontal sightlines across major roadways and intersections.
+● **Vehicle Climate Control:** Because humidity is **${humidity}%**, your vehicle's windshield may fog up easily if the interior air recirculates without cooling. Use fresh air mode with defoggers or open windows for cross-flow.
+● **Travel Window:** Traveling during early daylight or late afternoon offers cooler ambient vehicle cabin temps.${setupNotice}`;
+  }
+
+  // 13. Air Quality, Breathing, Health & Allergies
+  if (
+    lowerMsg.includes('air quality') ||
+    lowerMsg.includes('aqi') ||
+    lowerMsg.includes('breathe') ||
+    lowerMsg.includes('breathing') ||
+    lowerMsg.includes('asthma') ||
+    lowerMsg.includes('allerg') ||
+    lowerMsg.includes('health') ||
+    lowerMsg.includes('dust') ||
+    lowerMsg.includes('harmattan') ||
+    lowerMsg.includes('smoke') ||
+    lowerMsg.includes('pollution')
+  ) {
+    const aqiRating = aqi <= 50 ? 'Good' : aqi <= 100 ? 'Moderate' : 'Unhealthy for sensitive groups';
+    return `Here is your comprehensive respiratory and air quality report for **${loc}**:
+
+● **US AQI Reading:** **${aqi}** (${aqiRating}).
+● **Particulate Matter:** Ambient airborne particles (PM2.5 / PM10) are at acceptable levels, presenting no immediate hazard for the majority of the public.
+● **Humidity Impact on Airways:** At **${humidity}%** humidity, the air feels somewhat dense. While moist air helps soothe dry throats, people with sensitive airways or exercise-induced asthma may prefer gentle, steady breathing rather than rapid panting in high humidity.
+● **Home Air Tips:** Keep living areas dusted and well-aired with natural airflow.${setupNotice}`;
+  }
+
+  // 14. Sun, UV, Heat Protection & Cooling Down
+  if (
+    lowerMsg.includes('sun') ||
+    lowerMsg.includes('uv') ||
+    lowerMsg.includes('burn') ||
+    lowerMsg.includes('sunscreen') ||
+    lowerMsg.includes('heat') ||
+    lowerMsg.includes('hot') ||
+    lowerMsg.includes('cool down') ||
+    lowerMsg.includes('fan') ||
+    lowerMsg.includes('shade')
+  ) {
+    return `Here is your solar radiation and heat advisory for **${loc}**:
+
+● **Sun Intensity (UV Index):** Currently **${uv} (Low)**. Cloud cover acts as a natural shield, filtering harsh direct solar rays.
+● **Heat Sensation:** Although UV is low, ambient warmth feels like **${feelsLike}°C** because **${humidity}%** humidity traps body heat.
+● **Staying Cool:** Sit near open doorways or windows with gentle breezes, drink chilled or room-temperature water steadily, and avoid long exposure in unventilated rooms.
+● **Peak Sun Hours:** Even on cloudy days, UV rays peak between 11:30 AM and 2:30 PM. A light cap or sunglasses will keep you comfortable outdoors.${setupNotice}`;
+  }
+
+  // 15. Car Wash / Cleaning Outdoor Items
+  if (lowerMsg.includes('car wash') || lowerMsg.includes('wash car') || lowerMsg.includes('wash my car') || lowerMsg.includes('clean my car')) {
+    if (rainProb > 40) {
+      return `For washing your car in **${loc}**, you might want to **hold off for now**.
+      
+With a **${rainProb}% probability of rain** and high humidity, rainfall will quickly spot fresh paintwork, and roads will remain damp with dirt splashes. Wait for a clear, dry sunny spell!${setupNotice}`;
+    }
+    return `Conditions are **suitable for a car wash** in **${loc}**.
+    
+Roads are dry and precipitation chance is low (${rainProb}%). Just be sure to dry windows and mirrors with a microfiber towel, as **${humidity}%** humidity means water droplets evaporate more slowly than usual.${setupNotice}`;
+  }
+
+  // 16. Climate Change & Environmental Context (GCI Byte Busters Mission)
+  if (
+    lowerMsg.includes('climate change') ||
+    lowerMsg.includes('global warming') ||
+    lowerMsg.includes('weather changing') ||
+    lowerMsg.includes('why is it hotter') ||
+    lowerMsg.includes('environment') ||
+    lowerMsg.includes('station')
+  ) {
+    return `Understanding our changing climate is the exact reason **Byte Busters Coding Club of Government College Ibadan** built **GCI Meteo**!
+
+● **What we are observing:** Due to broader climate shifts, tropical regions are experiencing more erratic rainfall patterns, prolonged high-humidity spells, and elevated heat indices where 25°C feels like 30°C.
+● **Why moisture matters:** Warmer air holds approximately 7% more moisture per degree Celsius. This leads to that heavy, sticky sensation and sudden localized downpours instead of steady gentle rains.
+● **How you can adapt:** By tracking precision local telemetry—like dew point, humidity, and barometric trends—you and our community can make smarter daily choices for health, agriculture, school commutes, and energy use.${setupNotice}`;
+  }
+
+  // 17. Identity & Creator inquiries
   if (lowerMsg.includes('who are you') || lowerMsg.includes('who made you') || lowerMsg.includes('byte busters') || lowerMsg.includes('gci')) {
     return `I am **GCI Meteo**, your intelligent weather and daily living assistant! 
 
@@ -403,19 +600,41 @@ I was created by the **Byte Busters Coding Club of Government College Ibadan (GC
 Feel free to ask me anything about your current weather, food, attire, outdoor fitness, or general questions!${setupNotice}`;
   }
 
-  // 8. General Trivia / Common Knowledge
+  // 18. General Trivia / Common Knowledge
   if (lowerMsg.includes('capital of france')) return `The capital of France is **Paris**.${setupNotice}`;
   if (lowerMsg.includes('capital of nigeria')) return `The capital of Nigeria is **Abuja**.${setupNotice}`;
   if (lowerMsg.includes('hours in a week')) return `There are **168 hours** in a week (24 hours × 7 days).${setupNotice}`;
 
-  // 9. Comprehensive Default Meteorological & Daily Living Synthesis
-  return `Here is your comprehensive climate and living summary for **${loc}** at **${timeStr}**:
+  // 19. Adaptive Contextual Synthesis (Never repeats static text)
+  // Derive a dynamic angle from the prompt hash so follow-ups and diverse queries receive varied, tailored perspectives
+  const hash = Math.abs(message.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
+  const angle = hash % 3;
 
-● **Current Climate:** **${tempRounded}°C** (${cond}), feeling closer to **${feelsLike}°C** due to **${humidity}%** relative humidity.
-● **Breeze & Atmosphere:** Gentle airflow at **${wind}**, with low sunburn index (UV **${uv}**) and clean air quality (AQI **${aqi}**).
-● **Daily Living Impact:** High humidity means your body benefits from light, hydrating meals (like fresh fruit and water) and loose cotton attire. 
+  if (angle === 0) {
+    return `Regarding your inquiry for **${loc}** at **${timeStr}**:
 
-${upcomingRainNote}
+● **Living Comfort & Atmosphere:** Right now it is **${tempRounded}°C** (${cond}) with **${humidity}%** humidity, creating a "feels like" temperature of **${feelsLike}°C**. Airflow is gentle at **${wind}**.
+● **Practical Consideration:** In these conditions, your body will regulate temperature best if you wear loose breathable fabrics and drink water regularly to balance out the moisture retention in the air.
+● **Sky & Rain Status:** ${upcomingRainNote}
 
-Feel free to ask for specific advice on what to wear, outdoor exercise, meal choices, or travel plans!${setupNotice}`;
+Let me know if you would like guidance on what to wear, outdoor exercise timing, meal suggestions, or tomorrow's outlook!${setupNotice}`;
+  }
+
+  if (angle === 1) {
+    return `Here is a tailored operational update for **${loc}** right now (${timeStr}):
+
+● **Environmental Baseline:** Temperature is **${tempRounded}°C**, humidity is **${humidity}%**, and the heat index registers at **${feelsLike}°C** with a **${wind}** breeze.
+● **Daily Planning Insight:** Weather conditions are calm with low sun exposure (UV **${uv}**) and clean air quality (AQI **${aqi}**). This is an opportune window for indoor study, errands, or light travel before any evening moisture changes.
+● **Weather Window:** ${upcomingRainNote}
+
+Feel free to ask for specific recommendations on food, exercise viability, or commute planning!${setupNotice}`;
+  }
+
+  return `Here is what the current climate in **${loc}** means for your plans right now (${timeStr}):
+
+● **Weather Snapshot:** **${tempRounded}°C** (${cond}), feeling like **${feelsLike}°C** due to **${humidity}%** relative humidity.
+● **Immediate Living Tips:** The air has high moisture, so keep spaces well ventilated and prioritize light hydration. Roads are generally stable and walking conditions are comfortable.
+● **Rain Outlook:** ${upcomingRainNote}
+
+Ask me anything—whether it's what to eat, what to wear, drying clothes, or planning ahead!${setupNotice}`;
 }
