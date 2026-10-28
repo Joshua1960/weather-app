@@ -4,19 +4,32 @@
  * meteorological and daily living advice—matching the exact quality of live Gemini AI.
  */
 
+export function cleanNumber(val: any, fallback: number): number {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'number') return isNaN(val) ? fallback : val;
+  if (typeof val === 'string') {
+    const match = val.match(/-?\d+(?:\.\d+)?/);
+    if (match) {
+      const parsed = parseFloat(match[0]);
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return fallback;
+}
+
 export function generateHeuristicAdvisory(
   current: any,
   airQuality: any,
   activities: string[],
   customActivity?: string
 ) {
-  const temp = Math.round(current?.temperature ?? 24);
-  const feelsLike = Math.round(current?.apparentTemperature ?? temp);
-  const precip = current?.precipitation ?? 0;
-  const wind = Math.round(current?.windSpeed ?? 8);
-  const humidity = Math.round(current?.humidity ?? 65);
-  const uv = Math.round(current?.uvIndex ?? 2);
-  const aqi = Math.round(airQuality?.usAqi ?? 40);
+  const temp = Math.round(cleanNumber(current?.temperature, 24));
+  const feelsLike = Math.round(cleanNumber(current?.apparentTemperature, temp));
+  const precip = cleanNumber(current?.precipitation, 0);
+  const wind = Math.round(cleanNumber(current?.windSpeed, 8));
+  const humidity = Math.round(cleanNumber(current?.humidity, 65));
+  const uv = Math.round(cleanNumber(current?.uvIndex, 2));
+  const aqi = Math.round(cleanNumber(airQuality?.usAqi, 40));
   const isRaining = precip > 0.1 || (current?.weatherCode >= 50 && current?.weatherCode <= 67);
 
   const list = customActivity ? [...activities, customActivity] : activities;
@@ -182,26 +195,32 @@ export function generateHeuristicAdvisory(
 
 export function generateOfflineChatReply(message: string, context: any, showSetupTip = false): string {
   const loc = context?.city || 'your area';
-  const temp = context?.current?.temperature != null ? Number(context.current.temperature) : 24;
+
+  // Extract numeric telemetry safely — completely immune to strings like "24°C" or "95%"
+  const temp = cleanNumber(context?.current?.temperature, 24);
   const tempRounded = Math.round(temp);
-  const feelsLike = context?.current?.apparentTemperature != null
-    ? Math.round(Number(context.current.apparentTemperature))
-    : Math.round(temp + (context?.current?.humidity > 70 ? (context.current.humidity - 70) * 0.12 : 0));
+  const humidity = Math.round(cleanNumber(context?.current?.humidity, 85));
+  
+  const rawFeelsLike = context?.current?.apparentTemperature;
+  const feelsLike = rawFeelsLike != null
+    ? Math.round(cleanNumber(rawFeelsLike, tempRounded))
+    : Math.round(temp + (humidity > 70 ? (humidity - 70) * 0.12 : 0));
+
   const cond = context?.current?.conditionText || 'Cloudy';
-  const wind = context?.current?.windSpeed != null ? `${Math.round(context.current.windSpeed)} km/h` : '6 km/h';
-  const humidity = context?.current?.humidity != null ? Math.round(context.current.humidity) : 90;
-  const rainProb = context?.daily?.precipitationProbabilityMax ?? (context?.current?.precipitation > 0 ? 80 : 25);
-  const uv = context?.current?.uvIndex != null ? Math.round(context.current.uvIndex) : 1;
-  const aqi = context?.airQuality?.usAqi != null ? Math.round(context.airQuality.usAqi) : 40;
+  const windVal = Math.round(cleanNumber(context?.current?.windSpeed, 6));
+  const wind = `${windVal} km/h`;
+  const rainProb = Math.round(cleanNumber(context?.daily?.precipitationProbabilityMax ?? context?.current?.precipitation, 25));
+  const uv = Math.round(cleanNumber(context?.current?.uvIndex, 1));
+  const aqi = Math.round(cleanNumber(context?.airQuality?.usAqi, 40));
   const lowerMsg = message.toLowerCase();
 
   // Determine local time context
-  let timeStr = context?.currentTime;
+  let timeStr = context?.currentTime || context?.localTime;
   let hour = 8; // default to morning if unspecified
   if (!timeStr) {
     const now = new Date();
     hour = now.getHours();
-    timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
   } else {
     const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)?/i);
     if (match) {
@@ -217,14 +236,19 @@ export function generateOfflineChatReply(message: string, context: any, showSetu
   const isMorning = hour >= 5 && hour < 12;
   const isAfternoon = hour >= 12 && hour < 17;
   const isEvening = hour >= 17 && hour < 21;
-  const isNight = hour >= 21 || hour < 5;
 
   const timeGreeting = isMorning ? 'morning' : isAfternoon ? 'afternoon' : isEvening ? 'evening' : 'night';
 
   // Check hourly forecast for upcoming rain
   let upcomingRainNote = '';
-  if (context?.hourly && Array.isArray(context.hourly)) {
-    const rainyHours = context.hourly.slice(0, 5).filter((h: any) => (h.precipitationProbability ?? 0) > 30 || (h.precipitation ?? 0) > 0.1);
+  if (context?.upcomingHours && Array.isArray(context.upcomingHours)) {
+    const rainyHours = context.upcomingHours.slice(0, 5).filter((h: any) => cleanNumber(h.precipitationProbability ?? h.rainChance, 0) > 30);
+    if (rainyHours.length > 0) {
+      const times = rainyHours.map((h: any) => h.time).join(' and ');
+      upcomingRainNote = `A quick heads-up for your plans: While it is currently ${cond.toLowerCase()}, there is a chance of light drizzle around ${times}. If you're heading out, keeping a compact umbrella or light jacket within reach is a smart move!`;
+    }
+  } else if (context?.hourly && Array.isArray(context.hourly)) {
+    const rainyHours = context.hourly.slice(0, 5).filter((h: any) => cleanNumber(h.precipitationProbability ?? h.precipitation, 0) > 30);
     if (rainyHours.length > 0) {
       const times = rainyHours.map((h: any) => h.time).join(' and ');
       upcomingRainNote = `A quick heads-up for your plans: While it is currently ${cond.toLowerCase()}, there is a chance of light drizzle around ${times}. If you're heading out, keeping a compact umbrella or light jacket within reach is a smart move!`;
@@ -256,7 +280,7 @@ export function generateOfflineChatReply(message: string, context: any, showSetu
     const mealType = isMorning ? 'breakfast' : isAfternoon ? 'lunch' : isEvening ? 'dinner' : 'a late-night snack';
     return `Since it is currently **${timeStr}** here at **${loc}**, it’s a great time for **${mealType}**.
 
-Given the current conditions, I would recommend something light and hydrating. Right now, it is **${temp}°C**, but because the humidity is high at **${humidity}%**, it feels warmer—closer to **${feelsLike}°C**. When the air is this "sticky" or heavy with moisture, your body's natural evaporative cooling is slower, so it is best to avoid heavy, greasy, or overly spicy meals that might make you feel sluggish or overheated.
+Given the current conditions, I would recommend something light and hydrating. Right now, it is **${tempRounded}°C**, but because the humidity is high at **${humidity}%**, it feels warmer—closer to **${feelsLike}°C**. When the air is this "sticky" or heavy with moisture, your body's natural evaporative cooling is slower, so it is best to avoid heavy, greasy, or overly spicy meals that might make you feel sluggish or overheated.
 
 Here are a few practical suggestions for your ${timeGreeting}:
 
@@ -278,7 +302,7 @@ ${upcomingRainNote}${setupNotice}`;
     lowerMsg.includes('gym') ||
     lowerMsg.includes('fitness')
   ) {
-    const isGood = rainProb < 45 && temp < 31;
+    const isGood = rainProb < 45 && tempRounded < 31;
     return `If you're planning to exercise or go for a run in **${loc}**, the overall window is **${isGood ? 'Favorable with proper hydration' : 'Moderate'}**.
 
 Right now the temperature is **${tempRounded}°C**, but with relative humidity sitting at **${humidity}%**, the thermal heat index feels closer to **${feelsLike}°C**. In high moisture, sweat cannot evaporate as quickly from your skin, so your cardiovascular system works slightly harder to regulate core temperature.

@@ -215,7 +215,7 @@ export default function App() {
     }
   };
 
-  // Acquire user's current GPS location by default
+  // Acquire user's current GPS location with high precision
   const acquireCurrentLocation = useCallback((silent = false) => {
     if (!navigator.geolocation) {
       if (!silent) {
@@ -229,32 +229,56 @@ export default function App() {
     }
 
     setIsGeolocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        try {
-          const loc = await reverseGeocodeLocation(latitude, longitude);
-          setCurrentCity(loc);
-          setIsUsingCurrentLocation(true);
-          updatePreferences({ activeCity: loc });
-        } catch (err) {
-          console.warn('Geolocation geocode failed:', err);
-        } finally {
-          setIsGeolocating(false);
-        }
-      },
-      (err) => {
+
+    const onGeoSuccess = async (pos: GeolocationPosition) => {
+      const { latitude, longitude } = pos.coords;
+      try {
+        const loc = await reverseGeocodeLocation(latitude, longitude);
+        setCurrentCity(loc);
+        setIsUsingCurrentLocation(true);
+        updatePreferences({ activeCity: loc });
+      } catch (err) {
+        console.warn('Geolocation geocode failed:', err);
+      } finally {
         setIsGeolocating(false);
-        console.warn('Geolocation access fallback:', err.message);
-        if (!silent) {
-          addNotification({
-            title: 'Location Permission Denied',
-            body: 'Showing default location. You can search any city anytime.',
-            type: 'info',
-          });
-        }
-      },
-      { timeout: 8000, enableHighAccuracy: true }
+      }
+    };
+
+    const onGeoError = (err: GeolocationPositionError) => {
+      // If GPS lock timed out or precision failed, retry immediately with network-assisted geolocation
+      if (err.code === err.TIMEOUT || err.code === err.POSITION_UNAVAILABLE) {
+        navigator.geolocation.getCurrentPosition(
+          onGeoSuccess,
+          () => {
+            setIsGeolocating(false);
+            if (!silent) {
+              addNotification({
+                title: 'Location Unavailable',
+                body: 'Could not obtain exact GPS fix. Showing default location.',
+                type: 'info',
+              });
+            }
+          },
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+        );
+        return;
+      }
+
+      setIsGeolocating(false);
+      console.warn('Geolocation access fallback:', err.message);
+      if (!silent) {
+        addNotification({
+          title: 'Location Permission Denied',
+          body: 'Showing default location. You can search any city or street anytime.',
+          type: 'info',
+        });
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      onGeoSuccess,
+      onGeoError,
+      { timeout: 12000, enableHighAccuracy: true, maximumAge: 10000 }
     );
   }, []);
 

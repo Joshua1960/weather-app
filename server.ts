@@ -42,14 +42,139 @@ app.get('/api/health', (req, res) => {
 
 // Server-Side Reverse Geocoding Route (bypasses browser User-Agent restrictions)
 app.get('/api/geocode/reverse', async (req, res) => {
-  try {
-    const lat = req.query.lat;
-    const lon = req.query.lon;
-    if (!lat || !lon) {
-      return res.status(400).json({ error: 'lat and lon are required' });
-    }
+  const lat = req.query.lat;
+  const lon = req.query.lon;
+  if (!lat || !lon) {
+    return res.status(400).json({ error: 'lat and lon are required' });
+  }
 
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&zoom=16&format=json`;
+  const parsedLat = parseFloat(lat as string);
+  const parsedLon = parseFloat(lon as string);
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&zoom=18&format=json&addressdetails=1`;
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'GCIWeatherPlatform/2.0 (weather@gciweather.org)',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const addr = data.address || {};
+
+      const pinpoint =
+        data.name ||
+        addr.amenity ||
+        addr.building ||
+        addr.road ||
+        addr.pedestrian ||
+        addr.neighbourhood ||
+        addr.suburb;
+
+      const subDistrict =
+        (addr.neighbourhood && addr.neighbourhood !== pinpoint ? addr.neighbourhood : '') ||
+        (addr.suburb && addr.suburb !== pinpoint ? addr.suburb : '') ||
+        addr.quarter ||
+        addr.residential ||
+        addr.borough ||
+        addr.city_district ||
+        addr.county;
+
+      const city =
+        addr.city ||
+        addr.town ||
+        addr.village ||
+        addr.municipality ||
+        addr.county ||
+        addr.state;
+
+      let displayName = '';
+      if (pinpoint && subDistrict && pinpoint.toLowerCase() !== subDistrict.toLowerCase()) {
+        displayName = `${pinpoint}, ${subDistrict}`;
+      } else if (pinpoint && city && pinpoint.toLowerCase() !== city.toLowerCase()) {
+        displayName = `${pinpoint}, ${city}`;
+      } else if (pinpoint) {
+        displayName = pinpoint;
+      } else if (subDistrict && city) {
+        displayName = `${subDistrict}, ${city}`;
+      } else if (city) {
+        displayName = city;
+      } else {
+        displayName = addr.state || addr.country || 'Local Area';
+      }
+
+      const admin1 = [
+        addr.county || addr.city_district,
+        addr.state || addr.province || addr.region,
+      ]
+        .filter(Boolean)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .join(', ');
+
+      return res.json({
+        name: displayName,
+        country: addr.country || '',
+        admin1: admin1,
+        latitude: parsedLat,
+        longitude: parsedLon,
+        timezone: 'auto',
+      });
+    }
+  } catch (error: any) {
+    console.warn('Reverse Geocode Nominatim Error:', error);
+  }
+
+  // Fallback to BigDataCloud
+  try {
+    const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
+    const bdcRes = await fetch(bdcUrl);
+    if (bdcRes.ok) {
+      const bdcData = await bdcRes.json();
+      const locality = bdcData.locality || bdcData.city || bdcData.principalSubdivision;
+      const district = bdcData.localityInfo?.administrative?.[3]?.name || bdcData.localityInfo?.administrative?.[2]?.name;
+
+      let name = locality;
+      if (district && locality && district.toLowerCase() !== locality.toLowerCase()) {
+        name = `${locality}, ${district}`;
+      }
+
+      return res.json({
+        name: name || 'Local Area',
+        country: bdcData.countryName || '',
+        admin1: bdcData.principalSubdivision || '',
+        latitude: parsedLat,
+        longitude: parsedLon,
+        timezone: 'auto',
+      });
+    }
+  } catch (err) {
+    console.warn('BigDataCloud fallback failed:', err);
+  }
+
+  return res.json({
+    name: 'Local Area',
+    country: '',
+    admin1: '',
+    latitude: parsedLat,
+    longitude: parsedLon,
+    timezone: 'auto',
+  });
+});
+
+// Server-Side Geocode Search Proxy
+app.get('/api/geocode/search', async (req, res) => {
+  const q = req.query.q;
+  if (!q || typeof q !== 'string' || q.trim().length < 2) {
+    return res.json([]);
+  }
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+      q.trim()
+    )}&format=json&addressdetails=1&limit=8`;
+
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
@@ -58,61 +183,38 @@ app.get('/api/geocode/reverse', async (req, res) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Nominatim error: ${response.status}`);
+      return res.json([]);
     }
 
     const data = await response.json();
-    const addr = data.address || {};
+    if (!Array.isArray(data)) return res.json([]);
 
-    const specific =
-      addr.neighbourhood ||
-      addr.suburb ||
-      addr.quarter ||
-      addr.residential ||
-      addr.borough ||
-      addr.district ||
-      addr.road;
+    const results = data.map((item: any) => {
+      const addr = item.address || {};
+      const title = item.name || item.display_name.split(',')[0];
+      const admin = [
+        addr.suburb || addr.neighbourhood || addr.city_district || addr.road,
+        addr.city || addr.town || addr.county,
+        addr.state,
+      ]
+        .filter(Boolean)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .join(', ');
 
-    const area =
-      addr.city ||
-      addr.town ||
-      addr.village ||
-      addr.municipality ||
-      addr.county;
-
-    let locationName = '';
-    if (specific && area && specific.toLowerCase() !== area.toLowerCase()) {
-      locationName = `${specific}, ${area}`;
-    } else if (area) {
-      locationName = area;
-    } else if (specific) {
-      locationName = specific;
-    } else if (data.name) {
-      locationName = data.name;
-    } else {
-      locationName = addr.state || addr.country || 'Local Area';
-    }
-
-    return res.json({
-      name: locationName,
-      country: addr.country || '',
-      admin1: addr.state || addr.province || addr.region || '',
-      latitude: parseFloat(lat as string),
-      longitude: parseFloat(lon as string),
-      timezone: 'auto',
+      return {
+        name: title,
+        country: addr.country || '',
+        admin1: admin || addr.state || '',
+        latitude: parseFloat(item.lat),
+        longitude: parseFloat(item.lon),
+        timezone: 'auto',
+      };
     });
+
+    return res.json(results);
   } catch (error: any) {
-    console.error('Reverse Geocode Error:', error);
-    const lat = parseFloat(req.query.lat as string);
-    const lon = parseFloat(req.query.lon as string);
-    return res.json({
-      name: 'Local Area',
-      country: '',
-      admin1: '',
-      latitude: lat,
-      longitude: lon,
-      timezone: 'auto',
-    });
+    console.warn('Geocode Search Proxy Error:', error);
+    return res.json([]);
   }
 });
 

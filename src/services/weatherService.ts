@@ -17,12 +17,12 @@ import {
 } from '../utils/aiFallback';
 
 export async function reverseGeocodeLocation(latitude: number, longitude: number): Promise<LocationItem> {
-  // 1. Query server-side reverse geocoding proxy (compliant headers, fast and reliable)
+  // 1. Query server-side reverse geocoding proxy (compliant headers, street-level precision)
   try {
     const res = await fetch(`/api/geocode/reverse?lat=${latitude}&lon=${longitude}`);
     if (res.ok) {
       const data = await res.json();
-      if (data?.name && data.name !== 'Current Location') {
+      if (data?.name && data.name !== 'Current Location' && data.name !== 'Local Area') {
         return data;
       }
     }
@@ -30,48 +30,68 @@ export async function reverseGeocodeLocation(latitude: number, longitude: number
     console.warn('Server reverse geocode failed, falling back:', err);
   }
 
-  // 2. Direct client fallback
+  // 2. Direct client Nominatim fallback (zoom=18 for street/building precision)
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&zoom=16&format=json`
+      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&zoom=18&format=json&addressdetails=1`
     );
     if (res.ok) {
       const data = await res.json();
       const addr = data.address || {};
 
-      const specific =
+      const pinpoint =
+        data.name ||
+        addr.amenity ||
+        addr.building ||
+        addr.road ||
+        addr.pedestrian ||
         addr.neighbourhood ||
-        addr.suburb ||
+        addr.suburb;
+
+      const subDistrict =
+        (addr.neighbourhood && addr.neighbourhood !== pinpoint ? addr.neighbourhood : '') ||
+        (addr.suburb && addr.suburb !== pinpoint ? addr.suburb : '') ||
         addr.quarter ||
         addr.residential ||
         addr.borough ||
-        addr.district ||
-        addr.road;
+        addr.city_district ||
+        addr.county;
 
-      const area =
+      const city =
         addr.city ||
         addr.town ||
         addr.village ||
         addr.municipality ||
-        addr.county;
+        addr.county ||
+        addr.state;
 
-      let nichedName = '';
-      if (specific && area && specific.toLowerCase() !== area.toLowerCase()) {
-        nichedName = `${specific}, ${area}`;
-      } else if (area) {
-        nichedName = area;
-      } else if (specific) {
-        nichedName = specific;
-      } else if (data.name) {
-        nichedName = data.name;
+      let displayName = '';
+      if (pinpoint && subDistrict && pinpoint.toLowerCase() !== subDistrict.toLowerCase()) {
+        displayName = `${pinpoint}, ${subDistrict}`;
+      } else if (pinpoint && city && pinpoint.toLowerCase() !== city.toLowerCase()) {
+        displayName = `${pinpoint}, ${city}`;
+      } else if (pinpoint) {
+        displayName = pinpoint;
+      } else if (subDistrict && city) {
+        displayName = `${subDistrict}, ${city}`;
+      } else if (city) {
+        displayName = city;
       } else {
-        nichedName = addr.state || addr.country || 'Local Area';
+        displayName = addr.state || addr.country || 'Local Area';
       }
 
+      const admin1 = [
+        addr.county || addr.city_district,
+        addr.state || addr.province || addr.region,
+      ]
+        .filter(Boolean)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .join(', ');
+
       return {
-        name: nichedName,
+        name: displayName,
         country: addr.country || '',
-        admin1: addr.state || addr.province || addr.region || '',
+        admin1: admin1,
         latitude,
         longitude,
         timezone: 'auto',
@@ -79,6 +99,34 @@ export async function reverseGeocodeLocation(latitude: number, longitude: number
     }
   } catch (err) {
     console.warn('Client reverse geocode fetch failed:', err);
+  }
+
+  // 3. Direct BigDataCloud reverse geocode fallback
+  try {
+    const bdcRes = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`
+    );
+    if (bdcRes.ok) {
+      const bdcData = await bdcRes.json();
+      const locality = bdcData.locality || bdcData.city || bdcData.principalSubdivision;
+      const district = bdcData.localityInfo?.administrative?.[3]?.name || bdcData.localityInfo?.administrative?.[2]?.name;
+
+      let name = locality;
+      if (district && locality && district.toLowerCase() !== locality.toLowerCase()) {
+        name = `${locality}, ${district}`;
+      }
+
+      return {
+        name: name || 'Local Area',
+        country: bdcData.countryName || '',
+        admin1: bdcData.principalSubdivision || '',
+        latitude,
+        longitude,
+        timezone: 'auto',
+      };
+    }
+  } catch (err) {
+    console.warn('BigDataCloud fallback failed:', err);
   }
 
   return {
@@ -91,6 +139,14 @@ export async function reverseGeocodeLocation(latitude: number, longitude: number
 }
 
 const NICHE_LOCATIONS: LocationItem[] = [
+  {
+    name: 'Barth Road, University of Ibadan',
+    admin1: 'Ibadan North, Oyo',
+    country: 'Nigeria',
+    latitude: 7.4452,
+    longitude: 3.8988,
+    timezone: 'Africa/Lagos',
+  },
   {
     name: 'International Conference Centre, University of Ibadan',
     admin1: 'Ibadan North, Oyo',
@@ -347,8 +403,21 @@ export async function searchLocations(query: string): Promise<LocationItem[]> {
     }
   }
 
-  // 2. Query OpenStreetMap Nominatim for real-time worldwide building/district/street geocoding
-  const nominatimPromise = (async (): Promise<LocationItem[]> => {
+  // 2. Query Geocode Search Proxy (with Nominatim & compliant headers)
+  const proxySearchPromise = (async (): Promise<LocationItem[]> => {
+    try {
+      const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(query.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return data;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // Direct client fallback
     try {
       const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
         query.trim()
@@ -411,7 +480,7 @@ export async function searchLocations(query: string): Promise<LocationItem[]> {
   })();
 
   try {
-    const [nomResults, meteoResults] = await Promise.all([nominatimPromise, openMeteoPromise]);
+    const [nomResults, meteoResults] = await Promise.all([proxySearchPromise, openMeteoPromise]);
     const combined = [...localMatches, ...nomResults, ...meteoResults];
 
     // Deduplicate by close proximity (< 1km) and name
