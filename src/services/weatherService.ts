@@ -11,6 +11,10 @@ import {
   getAirQualityStatus,
   getWeatherInterpretation,
 } from '../utils/weatherUtils';
+import {
+  generateHeuristicAdvisory,
+  generateOfflineChatReply,
+} from '../utils/aiFallback';
 
 export async function reverseGeocodeLocation(latitude: number, longitude: number): Promise<LocationItem> {
   // 1. Query server-side reverse geocoding proxy (compliant headers, fast and reliable)
@@ -608,34 +612,54 @@ export async function getAIActivityAdvisory(payload: {
   activities: string[];
   customActivity?: string;
 }): Promise<AIAdvisoryResponse> {
-  const res = await fetch('/api/ai/activity-advisory', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  try {
+    const res = await fetch('/api/ai/activity-advisory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
-  if (!res.ok) {
-    throw new Error('Failed to generate AI activity advisory');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && (data.weatherMeaning || data.overallSummary)) {
+        return {
+          ...data,
+          generatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Backend activity advisory failed, engaging fallback:', err);
   }
 
-  const data = await res.json();
+  // Graceful fallback when backend or Vercel function is unavailable
+  const fallback = generateHeuristicAdvisory(payload.current, payload.airQuality, payload.activities, payload.customActivity);
   return {
-    ...data,
+    ...fallback,
     generatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   };
 }
 
 export async function sendChatMessage(messages: ChatMessage[], weatherContext: any): Promise<string> {
-  const res = await fetch('/api/ai/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages, weatherContext }),
-  });
+  const lastUserMsg = messages[messages.length - 1]?.content || '';
 
-  if (!res.ok) {
-    throw new Error('Failed to communicate with Atmosphere AI');
+  try {
+    const res = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, weatherContext }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.reply) {
+        return data.reply;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend chat API failed, engaging client fallback:', err);
   }
 
-  const data = await res.json();
-  return data.reply || 'No response generated.';
+  // Intelligent client-side fallback: answers the user directly so they never see an error
+  return generateOfflineChatReply(lastUserMsg, weatherContext);
 }

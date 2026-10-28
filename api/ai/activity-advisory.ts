@@ -1,0 +1,82 @@
+import { GoogleGenAI } from '@google/genai';
+import { generateHeuristicAdvisory } from '../../src/utils/aiFallback';
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+    const { location, current, hourlySummary, dailySummary, airQuality, activities, customActivity } = body;
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      const fallback = generateHeuristicAdvisory(current, airQuality, activities || [], customActivity);
+      return res.status(200).json(fallback);
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
+    const prompt = `
+You are GCI Meteo's Living & Meteorological Advisory Intelligence.
+Evaluate local weather conditions for ${location?.name || 'this location'}:
+- Current: ${current?.temperature}°C, Feels like: ${current?.apparentTemperature}°C, Condition: ${current?.conditionText}, Wind: ${current?.windSpeed} km/h, Humidity: ${current?.humidity}%, UV: ${current?.uvIndex}
+- Air Quality: US AQI ${airQuality?.usAqi} (${airQuality?.statusText})
+- Hourly Context: ${hourlySummary || 'Standard progression'}
+- Daily Context: ${JSON.stringify(dailySummary || {})}
+- Target Activities: ${JSON.stringify(activities || [])}
+${customActivity ? `- Custom User Activity Query: "${customActivity}"` : ''}
+
+Respond with strict JSON matching this structure:
+{
+  "weatherMeaning": "1 clear sentence explaining what today's weather feels like in plain English.",
+  "clothingRecommendation": "1 practical sentence recommending exact everyday clothing and accessories to wear today.",
+  "foodRecommendation": "1 clear sentence recommending healthy foods, drinks, or hydration matching the temperature and weather.",
+  "overallSummary": "Concise combined summary",
+  "advisories": [
+    {
+      "name": "Activity Name",
+      "rating": "Optimal" | "Good" | "Fair" | "Caution" | "Avoid",
+      "score": number between 0 and 100,
+      "bestTimeWindow": "e.g. 09:00 - 11:30",
+      "verdict": "Clear practical 1-sentence verdict",
+      "keyFactor": "e.g. Low UV & 20°C"
+    }
+  ]
+}
+`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-lite',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        temperature: 0.2,
+      },
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    return res.status(200).json(parsed);
+  } catch (err: any) {
+    console.error('Vercel Advisory Error:', err?.message || err);
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
+    const fallback = generateHeuristicAdvisory(body.current, body.airQuality, body.activities || [], body.customActivity);
+    return res.status(200).json(fallback);
+  }
+}

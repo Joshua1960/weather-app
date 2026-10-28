@@ -8,6 +8,7 @@ import {
   LocationItem,
 } from '../types/weather';
 import { sendChatMessage } from '../services/weatherService';
+import { generateOfflineChatReply } from '../utils/aiFallback';
 
 interface ChatbotDrawerProps {
   isOpen: boolean;
@@ -150,13 +151,14 @@ export const ChatbotDrawer: React.FC<ChatbotDrawerProps> = ({
       };
       setMessages((prev) => [...prev, modelMessage]);
     } catch (err: any) {
-      console.error(err);
+      console.warn('Chat request fallback:', err);
+      const fallbackReply = generateOfflineChatReply(userText, weatherContext);
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           role: 'model',
-          content: 'I encountered an error querying meteorological telemetries. Please try again.',
+          content: fallbackReply,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
